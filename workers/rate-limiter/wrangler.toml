@@ -1,0 +1,17 @@
+name = "rate-limiter"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-07-16"
+account_id = "b6d892f66c18ab372241fe474f507d90"
+
+[build]
+command = "worker-build --release"
+
+# RateLimiter DO class for atomic rate limit counting.
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+# Migration to create the DO class on first deploy.
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiter"]

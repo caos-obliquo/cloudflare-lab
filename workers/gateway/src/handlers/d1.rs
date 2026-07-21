@@ -1,0 +1,21 @@
+use crate::utils::response::json_response;
+use cloudflare_shared::bindings::EnvBindings;
+use worker::*;
+
+// GET /d1: D1 connectivity check via SELECT 1 ping.
+// D1 = serverless SQLite. Always use parameterized bind() - no SQL injection.
+pub async fn handler(env: &Env) -> Result<Response> {
+    let bindings = EnvBindings::from_env(env)?;
+
+    let stmt = bindings.d1.prepare("SELECT 1 AS result");
+    let result = stmt.first::<i64>(Some("result")).await?;
+
+    json_response(
+        200,
+        &serde_json::json!({
+            "status": "ok",
+            "endpoint": "/d1",
+            "result": result
+        }),
+    )
+}

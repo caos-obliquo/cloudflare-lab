@@ -1,0 +1,33 @@
+name = "gateway-worker"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-07-16"
+account_id = "b6d892f66c18ab372241fe474f507d90"
+
+[build]
+command = "worker-build --release"
+
+[[kv_namespaces]]
+binding = "TEST_KV"
+id = "5d5150177bb54338a19ddb35e010cbe4"
+
+[[d1_databases]]
+binding = "D1"
+database_name = "test-d1-database"
+database_id = "1b7da405-4460-4f87-8e75-24e3934d0386"
+
+[[queues.producers]]
+binding = "QUEUE"
+queue = "test-queue"
+
+[[queues.consumers]]
+queue = "test-queue"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[ai]
+binding = "AI"
+
+[[services]]
+binding = "AUTH"
+service = "auth-worker"
+

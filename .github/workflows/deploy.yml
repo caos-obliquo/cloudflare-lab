@@ -1,0 +1,138 @@
+name: Deploy Workers
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+
+# Queue deploys, never cancel a running deploy (would orphan infra).
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - run: cargo check --workspace --target wasm32-unknown-unknown
+      - run: cargo check -p devops-api
+
+  resolve-env:
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - id: resolve
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-auth:
+    needs: [gate, resolve-env]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve-env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - run: npm install -g wrangler
+      - run: cargo install worker-build
+      - working-directory: workers/auth
+        run: worker-build --release
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/auth
+          command: deploy --env ${{ needs.resolve-env.outputs.environment }}
+          secrets: |
+            SESSION_SECRET
+
+  deploy-gateway:
+    needs: deploy-auth
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve-env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - run: npm install -g wrangler
+      - run: cargo install worker-build
+      - working-directory: workers/gateway
+        run: worker-build --release
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/gateway
+          command: deploy --env ${{ needs.resolve-env.outputs.environment }}
+          secrets: |
+            LAMBDA_URL
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+
+  deploy-analytics:
+    needs: deploy-gateway
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve-env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - run: npm install -g wrangler
+      - run: cargo install worker-build
+      - working-directory: workers/analytics
+        run: worker-build --release
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/analytics
+          command: deploy --env ${{ needs.resolve-env.outputs.environment }}
+          secrets: |
+            SESSION_SECRET
+
+  smoke:
+    needs: deploy-analytics
+    runs-on: ubuntu-latest
+    steps:
+      - id: urls
+        run: |
+          ENV=${{ needs.resolve-env.outputs.environment }}
+          echo "auth_url=https://auth-worker-${ENV}.workers.dev/health" >> "$GITHUB_OUTPUT"
+          echo "gateway_url=https://gateway-worker-${ENV}.workers.dev/health" >> "$GITHUB_OUTPUT"
+          echo "analytics_url=https://analytics-worker-${ENV}.workers.dev/health" >> "$GITHUB_OUTPUT"
+      - run: |
+          for url in "${{ steps.urls.outputs.auth_url }}" "${{ steps.urls.outputs.gateway_url }}" "${{ steps.urls.outputs.analytics_url }}"; do
+            for i in {1..6}; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "000")
+              if [[ "$code" =~ ^(2|3)..$ ]]; then
+                echo "OK $url -> $code"
+                break
+              fi
+              if [[ "$i" -eq 6 ]]; then
+                echo "FAIL $url -> $code"
+                exit 1
+              fi
+              sleep 10
+            done
+          done

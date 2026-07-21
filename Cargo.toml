@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "shared",
+    "workers/gateway",
+    "workers/auth",
+    "workers/analytics",
+    "workers/rate-limiter",
+    "lambda/devops-api",
+]
+resolver = "2"
+

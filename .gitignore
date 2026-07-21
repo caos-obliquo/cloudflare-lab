@@ -1,0 +1,43 @@
+# Terraform
+terraform.tfvars
+terraform.tfvars.json
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+.terraform/
+.terraform.lock.hcl
+!terraform.auto.tfvars
+
+# Cloudflare Workers
+.wrangler/
+.wrangler/state/
+*.wasm
+worker-build-cache/
+
+# Rust
+target/
+Cargo.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Agent artifacts
+.omo/
+.opencode/
+
+# Env files (secrets)
+.env
+.env.*
+
+# Project specific
+.cf-terraforming.yaml
