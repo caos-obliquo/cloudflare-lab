@@ -26,10 +26,18 @@ impl Router {
         let ctx = TraceContext::from_request(&req)?;
         let start_ms = Date::now().as_millis();
 
+        // Capture Origin before req is moved/matched.
+        let req_origin = req.headers().get("Origin")?.unwrap_or_default();
+
         // CORS preflight: browser sends OPTIONS before cross-origin requests.
         if req.method() == Method::Options {
             let headers = Headers::new();
-            headers.set("Access-Control-Allow-Origin", "*")?;
+            // Reflect origin when available; fallback to wildcard (safe for OPTIONS).
+            if req_origin.is_empty() {
+                headers.set("Access-Control-Allow-Origin", "*")?;
+            } else {
+                headers.set("Access-Control-Allow-Origin", &req_origin)?;
+            }
             headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
             headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
             let mut resp = Response::empty()?.with_status(204).with_headers(headers);
@@ -141,6 +149,17 @@ impl Router {
                 &serde_json::json!({"status":"error","error":"Not found","available_routes":["/","/kv","/d1","/queue","/ai","/protected","/health","/livez","/readyz","/v1/models","/metrics","/logs"]}),
             ),
         }?;
+
+        // CORS: reflect origin on all responses (safe for API-only worker).
+        if req_origin.is_empty() {
+            resp.headers().set("Access-Control-Allow-Origin", "*")?;
+        } else {
+            resp.headers().set("Access-Control-Allow-Origin", &req_origin)?;
+        }
+        resp.headers()
+            .set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
+        resp.headers()
+            .set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
 
         let duration_ms = Date::now().as_millis() - start_ms;
         let status = resp.status_code();

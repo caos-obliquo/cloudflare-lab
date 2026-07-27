@@ -1,4 +1,4 @@
-.PHONY: build-gateway build-auth build-analytics build-all deploy-gateway deploy-auth deploy-analytics deploy-all
+.PHONY: build-gateway build-auth build-analytics build-rate-limiter build-all deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter deploy-all
 
 # Build individual workers
 build-gateway:
@@ -10,9 +10,12 @@ build-auth:
 build-analytics:
 	cd workers/analytics && worker-build --release
 
+build-rate-limiter:
+	cd workers/rate-limiter && worker-build --release
+
 # Build all workers in parallel
 build-all:
-	@$(MAKE) -j3 build-gateway build-auth build-analytics
+	@$(MAKE) -j4 build-gateway build-auth build-analytics build-rate-limiter
 
 # Deploy individual workers (build + wrangler deploy)
 deploy-gateway:
@@ -24,6 +27,9 @@ deploy-auth:
 deploy-analytics:
 	cd workers/analytics && wrangler deploy
 
+deploy-rate-limiter:
+	cd workers/rate-limiter && wrangler deploy
+
 # Deploy all workers
 deploy-all: build-all
-	@$(MAKE) deploy-gateway deploy-auth deploy-analytics
+	@$(MAKE) deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter

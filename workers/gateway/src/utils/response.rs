@@ -1,16 +1,10 @@
-//! CORS-wrapped JSON response builder.
+//! JSON response builder (no CORS — handled at route level in `routes.rs`).
 
 use worker::*;
 
-// JSON HTTP response with CORS headers. Used by all gateway handlers.
-// CORS * allows any origin - restrict to known domains in production.
+// JSON HTTP response. CORS headers are applied by the router in `routes.rs`
+// where the request `Origin` header is available for safe reflection.
 pub fn json_response(status: u16, data: &serde_json::Value) -> Result<Response> {
     let resp = Response::from_json(data)?;
-
-    let headers = Headers::new();
-    headers.set("Access-Control-Allow-Origin", "*")?;
-    headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
-    headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
-
-    Ok(resp.with_status(status).with_headers(headers))
+    Ok(resp.with_status(status))
 }

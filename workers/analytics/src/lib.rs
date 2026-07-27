@@ -66,6 +66,9 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let start = Date::now().as_millis();
     logger.request(&method, path, &ctx).emit();
 
+    // Capture origin before req is moved into handlers.
+    let req_origin = req.headers().get("Origin")?.unwrap_or_default();
+
     let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(
             200,
@@ -76,6 +79,18 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         ("GET", "/summary") => summary(req, &env).await,
         _ => json_error_response(404, "Not found", ""),
     }?;
+
+    // CORS: reflect origin on all responses.
+    if req_origin.is_empty() {
+        resp.headers().set("Access-Control-Allow-Origin", "*")?;
+    } else {
+        resp.headers().set("Access-Control-Allow-Origin", &req_origin)?;
+    }
+    resp.headers()
+        .set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
+    resp.headers()
+        .set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
+
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();
     logger.response(&method, path, status, duration_ms, &ctx).emit();
@@ -159,7 +174,5 @@ async fn summary(req: Request, env: &Env) -> Result<Response> {
 
 fn json_response(status: u16, data: &serde_json::Value) -> Result<Response> {
     let resp = Response::from_json(data)?;
-    let resp = resp.with_status(status);
-    resp.headers().set("Access-Control-Allow-Origin", "*")?;
-    Ok(resp)
+    Ok(resp.with_status(status))
 }
