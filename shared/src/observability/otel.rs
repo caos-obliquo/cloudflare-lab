@@ -4,15 +4,31 @@
 //! `application/x-protobuf`. This module uses the `prost` crate to encode
 //! the OTLP `ExportTraceServiceRequest` as protobuf binary.
 
+use std::{collections::VecDeque, sync::Mutex};
+
 use prost::Message;
+use wasm_bindgen::JsCast;
 
 use super::otlp_proto::{
     kv_int, kv_str, ExportTraceServiceRequest, Resource, ResourceSpans, Scope, ScopeSpans, Span, Status,
 };
 use crate::observability::trace_context::TraceContext;
 
+const MAX_BUFFERED_SPANS: usize = 100;
+
+struct PendingSpan {
+    url: String,
+    body: Vec<u8>,
+}
+
+static SPAN_BUFFER: Mutex<VecDeque<PendingSpan>> = Mutex::new(VecDeque::new());
+
 #[allow(clippy::too_many_arguments)]
 /// Export a single span to the OTel collector via HTTP/protobuf.
+///
+/// Retries up to 3 times with exponential backoff (100ms, 300ms).
+/// On success, also flushes any previously buffered spans.
+/// On failure, buffers the span for retry on the next export.
 pub async fn export_span(
     collector_url: &str,
     service: &str,
@@ -101,9 +117,38 @@ pub async fn export_span(
     // Encode as protobuf binary.
     let proto_bytes = request.encode_to_vec();
 
-    // POST to collector.
+    // POST to collector with retry.
     let url = format!("{}/v1/traces", collector_url.trim_end_matches('/'));
 
+    match send_with_retry(&url, &proto_bytes).await {
+        Ok(()) => {
+            // On success, flush any previously buffered spans.
+            flush_buffer().await;
+            Ok(())
+        }
+        Err(e) => {
+            // Buffer the failed span for retry on the next export.
+            if let Ok(mut buf) = SPAN_BUFFER.lock() {
+                if buf.len() >= MAX_BUFFERED_SPANS {
+                    buf.pop_front();
+                }
+                buf.push_back(PendingSpan { url, body: proto_bytes });
+            }
+            Err(e)
+        }
+    }
+}
+
+/// Decode a hex string into raw bytes.
+fn hex_to_bytes(hex: &str) -> Vec<u8> {
+    (0..hex.len())
+        .step_by(2)
+        .filter_map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+        .collect()
+}
+
+/// Single HTTP POST of protobuf-encoded span data to the collector.
+async fn send_post(url: &str, body: &[u8]) -> Result<(), String> {
     let mut init = worker::RequestInit::new();
     init.method = worker::Method::Post;
     init.headers = {
@@ -112,15 +157,12 @@ pub async fn export_span(
         h
     };
 
-    // Convert Vec<u8> to JsValue via js_sys::Uint8Array.
-    let js_array = js_sys::Uint8Array::from(&proto_bytes[..]);
+    let js_array = js_sys::Uint8Array::from(body);
     init.body = Some(wasm_bindgen::JsValue::from(js_array));
 
-    match worker::Fetch::Request(
-        worker::Request::new_with_init(&url, &init).map_err(|e| format!("build req: {:?}", e))?,
-    )
-    .send()
-    .await
+    match worker::Fetch::Request(worker::Request::new_with_init(url, &init).map_err(|e| format!("build req: {:?}", e))?)
+        .send()
+        .await
     {
         Ok(r) => {
             let code = r.status_code();
@@ -134,12 +176,60 @@ pub async fn export_span(
     }
 }
 
-/// Decode a hex string into raw bytes.
-fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    (0..hex.len())
-        .step_by(2)
-        .filter_map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
-        .collect()
+/// POST with retry: up to 3 attempts, exponential backoff (100ms, 300ms).
+async fn send_with_retry(url: &str, body: &[u8]) -> Result<(), String> {
+    let backoffs = [0u64, 100, 300];
+    let mut last_err = String::from("all 3 attempts failed");
+
+    for (i, delay) in backoffs.iter().enumerate() {
+        if *delay > 0 {
+            sleep_ms(*delay).await;
+        }
+
+        match send_post(url, body).await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                worker::console_log!("otel export attempt {}/3 failed: {}", i + 1, e);
+                last_err = e;
+            }
+        }
+    }
+
+    Err(last_err)
+}
+
+/// Flush all buffered spans, best-effort (drops on individual failure).
+async fn flush_buffer() {
+    let spans: Vec<PendingSpan> = {
+        let mut buf = match SPAN_BUFFER.lock() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
+        buf.drain(..).collect()
+    };
+
+    for span in spans {
+        if let Err(e) = send_post(&span.url, &span.body).await {
+            worker::console_log!("otel flush error: {}", e);
+        }
+    }
+}
+
+/// Async delay using JS setTimeout. Yields to the event loop while waiting.
+async fn sleep_ms(ms: u64) {
+    let promise = js_sys::Promise::new(&mut |resolve, _| {
+        let global = js_sys::global();
+        if let Ok(set_timeout) = js_sys::Reflect::get(&global, &wasm_bindgen::JsValue::from("setTimeout")) {
+            if let Some(f) = set_timeout.dyn_ref::<js_sys::Function>() {
+                let _ = f.call2(
+                    &wasm_bindgen::JsValue::null(),
+                    &resolve,
+                    &wasm_bindgen::JsValue::from(ms as f64),
+                );
+            }
+        }
+    });
+    let _ = worker::wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
 #[cfg(test)]

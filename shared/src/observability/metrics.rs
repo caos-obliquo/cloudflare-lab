@@ -10,11 +10,17 @@
 //   cloudflare_requests_total{method="GET",path="/health",status="200"}
 //   cloudflare_request_duration_ms{method="GET",path="/health"}
 
-use std::{cell::Cell, collections::BTreeMap, sync::Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
+};
 
 /// A counter that can only be incremented.
 pub struct Counter {
-    value: Cell<u64>,
+    value: AtomicU64,
     name: String,
     labels: BTreeMap<String, String>,
 }
@@ -22,22 +28,22 @@ pub struct Counter {
 impl Counter {
     pub fn new(name: &str, labels: BTreeMap<String, String>) -> Self {
         Self {
-            value: Cell::new(0),
+            value: AtomicU64::new(0),
             name: name.to_string(),
             labels,
         }
     }
 
     pub fn inc(&self) {
-        self.value.set(self.value.get() + 1);
+        self.value.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn inc_by(&self, n: u64) {
-        self.value.set(self.value.get() + n);
+        self.value.fetch_add(n, Ordering::Relaxed);
     }
 
     pub fn value(&self) -> u64 {
-        self.value.get()
+        self.value.load(Ordering::Relaxed)
     }
 
     /// Render as Prometheus text format line.
@@ -179,7 +185,7 @@ impl EndpointMetrics {
 
 /// Global metrics registry. Collects all endpoint metrics for /metrics export.
 pub struct MetricsRegistry {
-    endpoints: Mutex<Vec<EndpointMetrics>>,
+    endpoints: Mutex<Vec<Arc<EndpointMetrics>>>,
 }
 
 impl MetricsRegistry {
@@ -190,12 +196,11 @@ impl MetricsRegistry {
     }
 
     /// Register a new endpoint metric collector.
-    pub fn register(&self, method: &str, path: &str) -> EndpointMetrics {
-        let m = EndpointMetrics::new(method, path);
-        self.endpoints.lock().unwrap().push(m);
-        // Return a new one — in practice the caller stores it.
-        // The registry holds a clone for /metrics export.
-        EndpointMetrics::new(method, path)
+    /// Returns an Arc sharing the registry's copy — recording updates /metrics.
+    pub fn register(&self, method: &str, path: &str) -> Arc<EndpointMetrics> {
+        let m = Arc::new(EndpointMetrics::new(method, path));
+        self.endpoints.lock().unwrap().push(Arc::clone(&m));
+        m
     }
 
     /// Export all metrics in Prometheus text format.
