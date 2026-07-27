@@ -3,11 +3,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        type: choice
-        options: [staging, production]
-
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -51,24 +46,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --target wasm32-unknown-unknown
 
-  resolve-env:
-    needs: [lint, security, build]
-    runs-on: ubuntu-latest
-    outputs:
-      env: ${{ steps.resolve.outputs.env }}
-    steps:
-      - id: resolve
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "env=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "env=staging" >> "$GITHUB_OUTPUT"
-          fi
-
   deploy-auth:
-    needs: resolve-env
+    needs: build
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve-env.outputs.env }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -84,12 +64,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/auth
-          command: deploy --env ${{ needs.resolve-env.outputs.env }}
+          command: deploy
 
   deploy-gateway:
-    needs: [resolve-env, deploy-auth]
+    needs: deploy-auth
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve-env.outputs.env }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -105,12 +84,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/gateway
-          command: deploy --env ${{ needs.resolve-env.outputs.env }}
+          command: deploy
 
   deploy-analytics:
-    needs: [resolve-env, deploy-auth]
+    needs: deploy-auth
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve-env.outputs.env }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -126,20 +104,14 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/analytics
-          command: deploy --env ${{ needs.resolve-env.outputs.env }}
+          command: deploy
 
   smoke:
-    needs: [resolve-env, deploy-gateway, deploy-analytics]
+    needs: [deploy-gateway, deploy-analytics]
     runs-on: ubuntu-latest
     steps:
-      - id: urls
-        run: |
-          E=${{ needs.resolve-env.outputs.env }}
-          echo "auth=https://auth-worker-${E}.workers.dev/health" >> "$GITHUB_OUTPUT"
-          echo "gateway=https://gateway-worker-${E}.workers.dev/health" >> "$GITHUB_OUTPUT"
-          echo "analytics=https://analytics-worker-${E}.workers.dev/health" >> "$GITHUB_OUTPUT"
       - run: |
-          for url in "${{ steps.urls.outputs.auth }}" "${{ steps.urls.outputs.gateway }}" "${{ steps.urls.outputs.analytics }}"; do
+          for url in "https://auth-worker.workers.dev/health" "https://gateway-worker.workers.dev/health" "https://analytics-worker.workers.dev/health"; do
             for i in {1..6}; do
               code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "000")
               if [[ "$code" =~ ^(2|3)..$ ]]; then
