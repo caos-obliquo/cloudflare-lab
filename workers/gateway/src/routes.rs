@@ -41,7 +41,7 @@ impl Router {
         }
 
         // Log incoming request.
-        logger().request(&method, &path, &ctx).emit();
+        logger().request(&method, path, &ctx).emit();
 
         let mut resp = match path {
             "/" => json_response(

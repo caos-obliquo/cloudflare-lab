@@ -43,7 +43,6 @@ jobs:
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --target wasm32-unknown-unknown
-      - run: cargo check -p devops-api
       - run: cargo test --workspace || echo "no tests yet"
 
   tf-lint:
