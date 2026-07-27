@@ -18,7 +18,7 @@ struct LoginRequest { username: String, password: String }
 
 fn validate_username(username: &str) -> Result<()> {
     let len = username.len();
-    if len < 3 || len > 32 || !username.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if !(3..=32).contains(&len) || !username.chars().all(|c| c.is_ascii_alphanumeric()) {
         return Err(Error::from("Invalid username"));
     }
     Ok(())
@@ -26,7 +26,7 @@ fn validate_username(username: &str) -> Result<()> {
 
 fn validate_password(password: &str) -> Result<()> {
     let len = password.len();
-    if len < 8 || len > 128 {
+    if !(8..=128).contains(&len) {
         return Err(Error::from("Invalid password"));
     }
     Ok(())
@@ -78,7 +78,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let logger = Logger::new("auth");
 
     let start = Date::now().as_millis();
-    logger.request(&method, &path, &ctx).emit();
+    logger.request(&method, path, &ctx).emit();
 
     let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(
@@ -103,7 +103,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }?;
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();
-    logger.response(&method, &path, status, duration_ms, &ctx).emit();
+    logger.response(&method, path, status, duration_ms, &ctx).emit();
     resp.headers().set("X-Request-Id", &req_id)?;
     ctx.inject_into_response(&mut resp)?;
     Ok(resp)

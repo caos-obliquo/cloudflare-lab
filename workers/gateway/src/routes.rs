@@ -29,7 +29,7 @@ impl Router {
             resp.headers().set("X-Request-Id", &req_id)?;
             ctx.inject_into_response(&mut resp)?;
             let duration_ms = Date::now().as_millis() - start_ms;
-            logger().response(&method, &path, 204, duration_ms, &ctx).emit();
+            logger().response(&method, path, 204, duration_ms, &ctx).emit();
             return Ok(resp);
         }
 

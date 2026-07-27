@@ -12,10 +12,8 @@ use super::otlp_proto::{
     Span, Status,
 };
 
+#[allow(clippy::too_many_arguments)]
 /// Export a single span to the OTel collector via HTTP/protobuf.
-///
-/// POSTs to `<collector_url>/v1/traces` with `Content-Type: application/x-protobuf`.
-/// The collector must be reachable from the Worker's execution environment.
 pub async fn export_span(
     collector_url: &str,
     service: &str,
@@ -32,7 +30,7 @@ pub async fn export_span(
     // Decode hex trace_id (32 hex chars → 16 bytes) and span_id (16 hex → 8 bytes).
     let trace_id = hex_to_bytes(&tc.trace_id);
     let span_id = hex_to_bytes(&tc.span_id);
-    let parent = parent_span_id.map(|h| hex_to_bytes(h));
+    let parent = parent_span_id.map(hex_to_bytes);
     if trace_id.len() != 16 {
         return Err(format!("trace_id must be 16 bytes, got {}", trace_id.len()));
     }
@@ -127,7 +125,7 @@ pub async fn export_span(
     {
         Ok(r) => {
             let code = r.status_code();
-            if code >= 200 && code < 300 {
+            if (200..300).contains(&code) {
                 Ok(())
             } else {
                 Err(format!("otel collector returned {}", code))

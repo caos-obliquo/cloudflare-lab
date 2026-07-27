@@ -63,7 +63,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let logger = Logger::new("analytics");
 
     let start = Date::now().as_millis();
-    logger.request(&method, &path, &ctx).emit();
+    logger.request(&method, path, &ctx).emit();
 
     let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(200, &serde_json::json!({"status":"ok","service":"analytics-worker","routes":["/track","/events","/summary"]})),
@@ -74,14 +74,14 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }?;
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();
-    logger.response(&method, &path, status, duration_ms, &ctx).emit();
+    logger.response(&method, path, status, duration_ms, &ctx).emit();
     resp.headers().set("X-Request-Id", &req_id)?;
     ctx.inject_into_response(&mut resp)?;
     Ok(resp)
 }
 
 async fn track(mut req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, &env).await?;
+    let _user = require_auth(&req, env).await?;
     let body: TrackRequest = req.json().await?;
     let db = env.d1("D1")?;
     let data = body.event_data.unwrap_or_default();
@@ -93,7 +93,7 @@ async fn track(mut req: Request, env: &Env) -> Result<Response> {
 }
 
 async fn events(req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, &env).await?;
+    let _user = require_auth(&req, env).await?;
     let db = env.d1("D1")?;
     let query: std::collections::HashMap<String, String> = req.url()?.query_pairs()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -116,7 +116,7 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
 }
 
 async fn summary(req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, &env).await?;
+    let _user = require_auth(&req, env).await?;
     let db = env.d1("D1")?;
     let total = db.prepare("SELECT COUNT(*) as count FROM analytics_events")
         .first::<i64>(Some("count")).await?.unwrap_or(0);
