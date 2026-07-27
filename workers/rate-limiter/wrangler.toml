@@ -14,4 +14,4 @@ class_name = "RateLimiter"
 # Migration to create the DO class on first deploy.
 [[migrations]]
 tag = "v1"
-new_classes = ["RateLimiter"]
+new_sqlite_classes = ["RateLimiter"]

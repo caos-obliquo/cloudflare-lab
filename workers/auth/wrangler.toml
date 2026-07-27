@@ -9,13 +9,12 @@ command = "worker-build --release"
 [[kv_namespaces]]
 binding = "SESSIONS"
 # FIXME: Set id after `terraform apply` creates the sessions_kv namespace
-id = ""
-preview_id = "5d5150177bb54338a19ddb35e010cbe4"
+id = "bf6725a35c9745858b9468f878dc69f0"
+preview_id = "bf6725a35c9745858b9468f878dc69f0"
 
 [[d1_databases]]
 binding = "D1"
 database_name = "test-d1-database"
-database_id = "1b7da405-4460-4f87-8e75-24e3934d0386"
 
 # SESSION_SECRET: HMAC signing key for stateless session tokens.
 # Set via: `wrangler secret put SESSION_SECRET`
@@ -27,7 +26,5 @@ name = "RATE_LIMITER"
 class_name = "RateLimiter"
 script_name = "rate-limiter"
 
-[[migrations]]
-tag = "v1"
-new_classes = ["RateLimiter"]
+
 

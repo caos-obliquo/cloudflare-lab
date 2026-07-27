@@ -1,3 +1,5 @@
+//! Idempotent D1 schema bootstrapping (CREATE TABLE IF NOT EXISTS).
+
 use worker::*;
 
 // Called at worker startup. D1 has no migration runner, so CREATE TABLE IF NOT EXISTS

@@ -1,4 +1,8 @@
+//! Auth Worker — register/login/verify/me, HMAC tokens, pbkdf2, DO rate limiting.
+
 use cloudflare_shared::crypto::{hash_password, verify_password, verify_legacy_sha256};
+use cloudflare_shared::observability::structured_log::Logger;
+use cloudflare_shared::observability::trace_context::TraceContext;
 use cloudflare_shared::response::json_error_response;
 use cloudflare_shared::session::{create_token, parse_token};
 use cloudflare_shared::tracing::request_id_for_request;
@@ -70,9 +74,13 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let path = url.path();
     let method = req.method().to_string();
     let req_id = request_id_for_request(&req)?;
-    console_log!("[req-{}] handling {} {}", req_id, method, path);
+    let ctx = TraceContext::from_request(&req)?;
+    let logger = Logger::new("auth");
 
-    let resp = match (method.as_str(), path) {
+    let start = Date::now().as_millis();
+    logger.request(&method, &path, &ctx).emit();
+
+    let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(
             200,
             &serde_json::json!({
@@ -93,7 +101,11 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         ("GET", "/me") => me(req, &env).await,
         _ => json_error_response(404, "Not found", ""),
     }?;
+    let duration_ms = Date::now().as_millis() - start;
+    let status = resp.status_code();
+    logger.response(&method, &path, status, duration_ms, &ctx).emit();
     resp.headers().set("X-Request-Id", &req_id)?;
+    ctx.inject_into_response(&mut resp)?;
     Ok(resp)
 }
 

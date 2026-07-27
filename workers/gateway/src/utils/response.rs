@@ -1,3 +1,5 @@
+//! CORS-wrapped JSON response builder.
+
 use worker::*;
 
 // JSON HTTP response with CORS headers. Used by all gateway handlers.

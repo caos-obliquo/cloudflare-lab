@@ -53,7 +53,9 @@ curl -4 -s "$EP/_localstack/health" | python3 -m json.tool
 
 echo ""
 echo "═══ STEP 3: Build Lambda ═══"
-cargo build --release -p devops-api
+cd "$(dirname "$0")/.."
+# devops-api is a standalone crate (not in workspace), build from its directory.
+cargo build --release --manifest-path lambda/devops-api/Cargo.toml
 mkdir -p target/lambda/devops-api
 cp target/release/bootstrap target/lambda/devops-api/ 2>/dev/null || true
 

@@ -1,12 +1,4 @@
-// Stateless HMAC-signed session tokens.
-// No KV lookup needed - the token IS the session.
-// Signed with HMAC-SHA256 so tokens cannot be forged.
-// Purpose isolation prevents token replay across contexts (session vs CSRF).
-//
-// Token format: s2.<base64url(payload)>.<base64url(signature)>
-//   payload = {"u":"<user>","e":<exp>,"p":"<purpose>"}
-//
-// s2 prefix = session v2, distinguishes from old sess_<hex> KV tokens.
+// Token: s2.<base64url({"u":"<user>","e":<exp>,"p":"<purpose>"})>.<base64url(HMAC-SHA256)>
 
 use crate::crypto::{hmac_sign, hmac_verify};
 
@@ -26,11 +18,8 @@ pub struct SessionToken {
 // ttl_secs: how long token is valid (default 7 days if 0).
 pub fn create_token(secret: &[u8], username: &str, purpose: &str, ttl_secs: u64) -> Result<String, String> {
     let ttl = if ttl_secs == 0 { DEFAULT_TTL_SECS } else { ttl_secs };
-    let exp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        + ttl;
+    let now_secs = (js_sys::Date::now() / 1000.0) as u64;
+    let exp = now_secs + ttl;
 
     // Build compact JSON payload with short keys.
     let payload = serde_json::json!({"u": username, "e": exp, "p": purpose});
@@ -99,10 +88,7 @@ pub fn parse_token(token_str: &str, secret: &[u8], expected_purpose: &str) -> Re
     }
 
     // Check expiry.
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+    let now = (js_sys::Date::now() / 1000.0) as u64;
     if now > expires_at {
         return Err("token expired".into());
     }

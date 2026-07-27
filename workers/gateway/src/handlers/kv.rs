@@ -2,9 +2,7 @@ use crate::utils::response::json_response;
 use cloudflare_shared::bindings::EnvBindings;
 use worker::*;
 
-// GET /kv: puts then gets a KV value. Demonstrates Workers KV read/write.
-// KV = global key-value store, eventually consistent (seconds for replication).
-// Best for config, session data, cached responses.
+// GET /kv — KV put + get
 pub async fn handler(env: &Env) -> Result<Response> {
     let bindings = EnvBindings::from_env(env)?;
 

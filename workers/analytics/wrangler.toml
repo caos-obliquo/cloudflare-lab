@@ -9,11 +9,10 @@ command = "worker-build --release"
 [[d1_databases]]
 binding = "D1"
 database_name = "test-d1-database"
-database_id = "1b7da405-4460-4f87-8e75-24e3934d0386"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "5d5150177bb54338a19ddb35e010cbe4"
+id = "bf6725a35c9745858b9468f878dc69f0"
 
 # SESSION_SECRET: HMAC signing key for stateless session token verification.
 # Set via: `wrangler secret put SESSION_SECRET`

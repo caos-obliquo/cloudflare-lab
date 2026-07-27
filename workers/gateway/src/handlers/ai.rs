@@ -2,8 +2,7 @@ use crate::utils::response::json_response;
 use cloudflare_shared::bindings::{AiInput, EnvBindings};
 use worker::*;
 
-// GET /ai: runs Workers AI inference on Llama 3.1 8B.
-// Workers AI runs on Cloudflare's GPU network - low latency inference.
+// GET /ai — Workers AI (Llama 3.1 8B)
 pub async fn handler(env: &Env) -> Result<Response> {
     let bindings = EnvBindings::from_env(env)?;
 
@@ -12,8 +11,6 @@ pub async fn handler(env: &Env) -> Result<Response> {
         max_tokens: 20,
     };
 
-    // .run() serializes AiInput to JS object (WASM binding contract).
-    // Model response lives in JSON field "response".
     let response: serde_json::Value = bindings
         .ai
         .run("@cf/meta/llama-3.1-8b-instruct-fast", &input)

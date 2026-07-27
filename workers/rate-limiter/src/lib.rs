@@ -1,6 +1,4 @@
-// Rate limiter using Durable Object for atomic, globally-consistent limit tracking.
-// Each DO instance tracks one key (IP:route combination).
-// Single-threaded DO ensures no concurrent increments can bypass the limit.
+//! DO rate limiter — per-key atomic counting via `{"limit":N,"window":T}` POST.
 
 use serde::Deserialize;
 use worker::*;

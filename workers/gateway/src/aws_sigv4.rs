@@ -1,14 +1,9 @@
+//! SigV4 signing for Lambda Function URLs. Digest + HMAC-SHA256 via ring.
+
 use ring::hmac;
 use ring::digest;
 use std::fmt::Write;
 
-// SigV4 request signing for IAM-authenticated AWS Lambda Function URL calls.
-// See AWS SigV4 spec: https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html
-//
-// High-level: hash body -> build canonical request -> hash it -> create string-to-sign ->
-// derive key (AWS4+secret->date->region->service->aws4_request) -> HMAC-SHA256 sign -> Authorization header.
-//
-// This targets Lambda Function URLs only (no query params, no chunked encoding).
 pub struct SigV4Signer {
     access_key: String,
     secret_key: String,

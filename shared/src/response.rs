@@ -1,3 +1,5 @@
+//! JSON response helpers with CORS headers.
+
 use worker::*;
 use serde_json::json;
 

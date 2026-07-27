@@ -83,10 +83,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/gateway
           command: deploy --env ${{ needs.resolve-env.outputs.environment }}
-          secrets: |
-            LAMBDA_URL
-            AWS_ACCESS_KEY_ID
-            AWS_SECRET_ACCESS_KEY
+
 
   deploy-analytics:
     needs: deploy-gateway

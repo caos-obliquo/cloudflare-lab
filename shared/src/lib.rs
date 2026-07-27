@@ -9,3 +9,4 @@ pub mod error;      // AppError enum: typed errors for the whole project
 pub mod response;   // JSON response helpers: standardized format + CORS headers
 pub mod session;    // HMAC-signed stateless session tokens (no KV lookup)
 pub mod tracing;    // X-Request-Id: extract from request or generate fresh
+pub mod observability; // W3C trace context, structured logging, metrics, health checks

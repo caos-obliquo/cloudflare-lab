@@ -1,3 +1,5 @@
+//! Typed EnvBindings + AiInput for worker-rs WASM boundary.
+
 use serde::Serialize;
 use worker::*;
 

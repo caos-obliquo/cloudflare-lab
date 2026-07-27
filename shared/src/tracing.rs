@@ -1,3 +1,5 @@
+//! CSPRNG X-Request-Id (16-byte, 32 hex chars).
+
 use worker::*;
 
 // CSPRNG 16-byte request ID (32 hex chars). NOT UUID v4 - no dashes, no version bits.
