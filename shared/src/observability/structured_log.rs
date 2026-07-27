@@ -8,10 +8,12 @@
 // All logs go through `console_log!` which appears in Cloudflare's dashboard
 // and logpush. The JSON format enables structured querying in log analysis tools.
 
-use crate::observability::trace_context::TraceContext;
-use serde::Serialize;
 use std::sync::Mutex;
+
+use serde::Serialize;
 use worker::Date;
+
+use crate::observability::trace_context::TraceContext;
 
 /// Log severity levels matching standard logging conventions.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -112,7 +114,10 @@ impl LogEvent {
     /// Emit this log event via console_log! as a JSON string.
     pub fn emit(&self) {
         let json_str = serde_json::to_string(self).unwrap_or_else(|_| {
-            format!(r#"{{"level":"ERROR","message":"log serialization failed","service":"{}"}}"#, self.service)
+            format!(
+                r#"{{"level":"ERROR","message":"log serialization failed","service":"{}"}}"#,
+                self.service
+            )
         });
         worker::console_log!("{}", json_str);
     }
@@ -159,7 +164,13 @@ impl Logger {
 
     /// Log a completed response with duration.
     pub fn response(&self, method: &str, path: &str, status: u16, duration_ms: u64, ctx: &TraceContext) -> LogEvent {
-        let level = if status >= 500 { LogLevel::Error } else if status >= 400 { LogLevel::Warn } else { LogLevel::Info };
+        let level = if status >= 500 {
+            LogLevel::Error
+        } else if status >= 400 {
+            LogLevel::Warn
+        } else {
+            LogLevel::Info
+        };
         LogEvent::new(level, &format!("{} {} -> {}", method, path, status), &self.service)
             .with_trace(ctx)
             .with_http(method, path)

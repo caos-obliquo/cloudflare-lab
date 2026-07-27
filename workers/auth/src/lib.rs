@@ -1,24 +1,31 @@
 //! Auth Worker — register/login/verify/me, HMAC tokens, pbkdf2, DO rate limiting.
 
-use cloudflare_shared::crypto::{hash_password, verify_password, verify_legacy_sha256};
-use cloudflare_shared::observability::structured_log::Logger;
-use cloudflare_shared::observability::trace_context::TraceContext;
-use cloudflare_shared::response::json_error_response;
-use cloudflare_shared::session::{create_token, parse_token};
-use cloudflare_shared::tracing::request_id_for_request;
+use cloudflare_shared::{
+    crypto::{hash_password, verify_legacy_sha256, verify_password},
+    observability::{structured_log::Logger, trace_context::TraceContext},
+    response::json_error_response,
+    session::{create_token, parse_token},
+    tracing::request_id_for_request,
+};
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
 use worker::*;
 
 #[derive(Deserialize)]
-struct RegisterRequest { username: String, password: String }
+struct RegisterRequest {
+    username: String,
+    password: String,
+}
 
 #[derive(Deserialize)]
-struct LoginRequest { username: String, password: String }
+struct LoginRequest {
+    username: String,
+    password: String,
+}
 
 fn validate_username(username: &str) -> Result<()> {
     let len = username.len();
-    if len < 3 || len > 32 || !username.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if !(3..=32).contains(&len) || !username.chars().all(|c| c.is_ascii_alphanumeric()) {
         return Err(Error::from("Invalid username"));
     }
     Ok(())
@@ -26,7 +33,7 @@ fn validate_username(username: &str) -> Result<()> {
 
 fn validate_password(password: &str) -> Result<()> {
     let len = password.len();
-    if len < 8 || len > 128 {
+    if !(8..=128).contains(&len) {
         return Err(Error::from("Invalid password"));
     }
     Ok(())
@@ -54,7 +61,11 @@ async fn check_rate_limit(req: &Request, env: &Env, route: &str, limit: u64) -> 
 
     let allowed = result.get("allowed").and_then(|v| v.as_bool()).unwrap_or(false);
     if !allowed {
-        return Ok(Some(json_error_response(429, "Too many requests. Please try again later.", "")?));
+        return Ok(Some(json_error_response(
+            429,
+            "Too many requests. Please try again later.",
+            "",
+        )?));
     }
     Ok(None)
 }
@@ -62,7 +73,8 @@ async fn check_rate_limit(req: &Request, env: &Env, route: &str, limit: u64) -> 
 // Get SESSION_SECRET from env vars. This is the HMAC signing key for session tokens.
 // Must be set via `wrangler secret put SESSION_SECRET` before deploy.
 fn session_secret(env: &Env) -> Result<Vec<u8>> {
-    Ok(env.var("SESSION_SECRET")
+    Ok(env
+        .var("SESSION_SECRET")
         .map_err(|_| Error::from("SESSION_SECRET not configured"))?
         .to_string()
         .into_bytes())
@@ -78,7 +90,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let logger = Logger::new("auth");
 
     let start = Date::now().as_millis();
-    logger.request(&method, &path, &ctx).emit();
+    logger.request(&method, path, &ctx).emit();
 
     let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(
@@ -103,7 +115,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }?;
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();
-    logger.response(&method, &path, status, duration_ms, &ctx).emit();
+    logger.response(&method, path, status, duration_ms, &ctx).emit();
     resp.headers().set("X-Request-Id", &req_id)?;
     ctx.inject_into_response(&mut resp)?;
     Ok(resp)
@@ -131,7 +143,10 @@ async fn register(mut req: Request, env: &Env) -> Result<Response> {
         .bind(&[JsValue::from(&body.username), JsValue::from(&hashed)])?
         .run()
         .await?;
-    json_response(201, &serde_json::json!({"status":"ok","message":"User registered successfully","username": body.username}))
+    json_response(
+        201,
+        &serde_json::json!({"status":"ok","message":"User registered successfully","username": body.username}),
+    )
 }
 
 // Login: validate -> verify password -> sign HMAC stateless token. No KV session write.
@@ -158,7 +173,10 @@ async fn login(mut req: Request, env: &Env) -> Result<Response> {
         // pbkdf2 match -> sign HMAC token, return to client.
         Some(hash) if verify_password(&body.password, &hash) => {
             match create_token(&secret, &body.username, "session", 0) {
-                Ok(token) => json_response(200, &serde_json::json!({"status":"ok","message":"Login successful","token":token})),
+                Ok(token) => json_response(
+                    200,
+                    &serde_json::json!({"status":"ok","message":"Login successful","token":token}),
+                ),
                 Err(e) => json_error_response(500, &format!("Token creation failed: {}", e), ""),
             }
         }
@@ -170,7 +188,10 @@ async fn login(mut req: Request, env: &Env) -> Result<Response> {
                 .run()
                 .await?;
             match create_token(&secret, &body.username, "session", 0) {
-                Ok(token) => json_response(200, &serde_json::json!({"status":"ok","message":"Login successful","token":token})),
+                Ok(token) => json_response(
+                    200,
+                    &serde_json::json!({"status":"ok","message":"Login successful","token":token}),
+                ),
                 Err(e) => json_error_response(500, &format!("Token creation failed: {}", e), ""),
             }
         }
@@ -192,7 +213,10 @@ async fn verify(req: Request, env: &Env) -> Result<Response> {
     if raw.starts_with("s2.") {
         let secret = session_secret(env)?;
         match parse_token(raw, &secret, "session") {
-            Ok(t) => json_response(200, &serde_json::json!({"status":"ok","message":"Token is valid","username":t.username})),
+            Ok(t) => json_response(
+                200,
+                &serde_json::json!({"status":"ok","message":"Token is valid","username":t.username}),
+            ),
             Err(e) => json_error_response(401, &format!("Invalid or expired token: {}", e), ""),
         }
     } else {
@@ -200,7 +224,10 @@ async fn verify(req: Request, env: &Env) -> Result<Response> {
         // TODO: remove once all users have re-authenticated with HMAC tokens.
         let kv = env.kv("SESSIONS")?;
         match kv.get(raw).text().await? {
-            Some(user) => json_response(200, &serde_json::json!({"status":"ok","message":"Token is valid","username":user})),
+            Some(user) => json_response(
+                200,
+                &serde_json::json!({"status":"ok","message":"Token is valid","username":user}),
+            ),
             None => json_error_response(401, "Invalid or expired token", ""),
         }
     }
@@ -218,14 +245,20 @@ async fn me(req: Request, env: &Env) -> Result<Response> {
     if raw.starts_with("s2.") {
         let secret = session_secret(env)?;
         match parse_token(raw, &secret, "session") {
-            Ok(t) => json_response(200, &serde_json::json!({"status":"ok","authenticated":true,"username":t.username,"token":raw})),
+            Ok(t) => json_response(
+                200,
+                &serde_json::json!({"status":"ok","authenticated":true,"username":t.username,"token":raw}),
+            ),
             Err(e) => json_error_response(401, &format!("Invalid or expired token: {}", e), ""),
         }
     } else {
         // Legacy KV token fallback.
         let kv = env.kv("SESSIONS")?;
         match kv.get(raw).text().await? {
-            Some(user) => json_response(200, &serde_json::json!({"status":"ok","authenticated":true,"username":user,"token":raw})),
+            Some(user) => json_response(
+                200,
+                &serde_json::json!({"status":"ok","authenticated":true,"username":user,"token":raw}),
+            ),
             None => json_error_response(401, "Invalid or expired token", ""),
         }
     }

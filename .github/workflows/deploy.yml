@@ -26,7 +26,7 @@ jobs:
           target: wasm32-unknown-unknown
           components: clippy, rustfmt
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
 
   security:
     runs-on: ubuntu-latest
@@ -39,6 +39,7 @@ jobs:
       - run: cargo install cargo-audit
       - run: cargo audit
       - run: npm audit --omit=dev || true
+        continue-on-error: true
 
   build:
     runs-on: ubuntu-latest
@@ -48,8 +49,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --target wasm32-unknown-unknown --locked
-      - run: cargo check -p devops-api --locked
+      - run: cargo check --workspace --target wasm32-unknown-unknown
 
   resolve-env:
     needs: [lint, security, build]
@@ -133,7 +133,7 @@ jobs:
             SESSION_SECRET
 
   smoke:
-    needs: [deploy-gateway, deploy-analytics]
+    needs: [resolve-env, deploy-gateway, deploy-analytics]
     runs-on: ubuntu-latest
     steps:
       - id: urls

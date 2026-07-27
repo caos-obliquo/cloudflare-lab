@@ -1,27 +1,36 @@
-use crate::aws_sigv4::SigV4Signer;
-use crate::utils::response::json_response;
 use cloudflare_shared::observability::trace_context::TraceContext;
 use worker::*;
+
+use crate::{aws_sigv4::SigV4Signer, utils::response::json_response};
 
 // POST /lambda/query — SigV4-signed proxy to Lambda Function URL
 pub async fn handler(mut req: Request, env: &Env, tc: &TraceContext) -> Result<Response> {
     let lambda_url = match env.var("LAMBDA_URL") {
         Ok(v) => v.to_string(),
-        Err(_) => return json_response(
-            502, &serde_json::json!({"status":"error","error":"Lambda URL not configured"}),
-        ),
+        Err(_) => {
+            return json_response(
+                502,
+                &serde_json::json!({"status":"error","error":"Lambda URL not configured"}),
+            )
+        }
     };
     let access_key = match env.var("AWS_ACCESS_KEY_ID") {
         Ok(v) => v.to_string(),
-        Err(_) => return json_response(
-            502, &serde_json::json!({"status":"error","error":"AWS_ACCESS_KEY_ID not configured"}),
-        ),
+        Err(_) => {
+            return json_response(
+                502,
+                &serde_json::json!({"status":"error","error":"AWS_ACCESS_KEY_ID not configured"}),
+            )
+        }
     };
     let secret_key = match env.var("AWS_SECRET_ACCESS_KEY") {
         Ok(v) => v.to_string(),
-        Err(_) => return json_response(
-            502, &serde_json::json!({"status":"error","error":"AWS_SECRET_ACCESS_KEY not configured"}),
-        ),
+        Err(_) => {
+            return json_response(
+                502,
+                &serde_json::json!({"status":"error","error":"AWS_SECRET_ACCESS_KEY not configured"}),
+            )
+        }
     };
 
     let body_text = req.text().await.unwrap_or_default();

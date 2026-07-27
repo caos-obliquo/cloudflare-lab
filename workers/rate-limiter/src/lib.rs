@@ -4,10 +4,16 @@ use serde::Deserialize;
 use worker::*;
 
 #[derive(Deserialize)]
-struct CheckRequest { limit: u64, window: u64 }
+struct CheckRequest {
+    limit: u64,
+    window: u64,
+}
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
-struct RateState { count: u64, reset_at: u64 }
+struct RateState {
+    count: u64,
+    reset_at: u64,
+}
 
 #[durable_object]
 pub struct RateLimiter {
@@ -26,7 +32,10 @@ impl DurableObject for RateLimiter {
 
         let mut st: RateState = self.state.storage().get("state").await?.unwrap_or_default();
         if now >= st.reset_at {
-            st = RateState { count: 0, reset_at: now + body.window };
+            st = RateState {
+                count: 0,
+                reset_at: now + body.window,
+            };
         }
 
         let allowed = st.count < body.limit;

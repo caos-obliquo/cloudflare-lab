@@ -11,8 +11,9 @@
 // - Checks are run on-demand (not background-polled) since Workers are
 //   stateless and ephemeral
 
-use serde::Serialize;
 use std::sync::Mutex;
+
+use serde::Serialize;
 use worker::Date;
 
 /// Health status for a dependency.

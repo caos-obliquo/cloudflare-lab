@@ -1,7 +1,7 @@
 //! JSON response helpers with CORS headers.
 
-use worker::*;
 use serde_json::json;
+use worker::*;
 
 // JSON error response: {"status":"error","error":"<msg>","code":<status>,"request_id":"<id>"}
 // CORS * on all responses. Production: restrict to known origins.

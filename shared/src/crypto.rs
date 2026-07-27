@@ -1,7 +1,6 @@
 use std::num::NonZeroU32;
-use ring::digest;
-use ring::hmac;
-use ring::pbkdf2;
+
+use ring::{digest, hmac, pbkdf2};
 
 // PBKDF2-HMAC-SHA512: OWASP-recommended password hashing.
 // 100k iterations makes GPU brute-force expensive. 16-byte salt prevents rainbow tables.
@@ -43,16 +42,10 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
     let Ok(iterations) = parts[2].strip_prefix("i=").unwrap_or("").parse::<u32>() else {
         return false;
     };
-    let Ok(salt) = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        parts[3],
-    ) else {
+    let Ok(salt) = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, parts[3]) else {
         return false;
     };
-    let Ok(stored_dk) = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        parts[4],
-    ) else {
+    let Ok(stored_dk) = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, parts[4]) else {
         return false;
     };
     let Some(iterations) = NonZeroU32::new(iterations) else {

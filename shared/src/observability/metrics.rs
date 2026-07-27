@@ -10,9 +10,7 @@
 //   cloudflare_requests_total{method="GET",path="/health",status="200"}
 //   cloudflare_request_duration_ms{method="GET",path="/health"}
 
-use std::cell::Cell;
-use std::collections::BTreeMap;
-use std::sync::Mutex;
+use std::{cell::Cell, collections::BTreeMap, sync::Mutex};
 
 /// A counter that can only be incremented.
 pub struct Counter {

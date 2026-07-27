@@ -4,18 +4,15 @@
 //! `application/x-protobuf`. This module uses the `prost` crate to encode
 //! the OTLP `ExportTraceServiceRequest` as protobuf binary.
 
-use crate::observability::trace_context::TraceContext;
 use prost::Message;
 
 use super::otlp_proto::{
-    kv_int, kv_str, ExportTraceServiceRequest, Resource, ResourceSpans, Scope, ScopeSpans,
-    Span, Status,
+    kv_int, kv_str, ExportTraceServiceRequest, Resource, ResourceSpans, Scope, ScopeSpans, Span, Status,
 };
+use crate::observability::trace_context::TraceContext;
 
+#[allow(clippy::too_many_arguments)]
 /// Export a single span to the OTel collector via HTTP/protobuf.
-///
-/// POSTs to `<collector_url>/v1/traces` with `Content-Type: application/x-protobuf`.
-/// The collector must be reachable from the Worker's execution environment.
 pub async fn export_span(
     collector_url: &str,
     service: &str,
@@ -32,7 +29,7 @@ pub async fn export_span(
     // Decode hex trace_id (32 hex chars → 16 bytes) and span_id (16 hex → 8 bytes).
     let trace_id = hex_to_bytes(&tc.trace_id);
     let span_id = hex_to_bytes(&tc.span_id);
-    let parent = parent_span_id.map(|h| hex_to_bytes(h));
+    let parent = parent_span_id.map(hex_to_bytes);
     if trace_id.len() != 16 {
         return Err(format!("trace_id must be 16 bytes, got {}", trace_id.len()));
     }
@@ -73,7 +70,7 @@ pub async fn export_span(
         trace_state: String::new(),
         parent_span_id: parent.unwrap_or_default(),
         name: name.to_string(),
-                        kind: 2, // SpanKind::Server
+        kind: 2, // SpanKind::Server
         start_time_unix_nano: start_ns,
         end_time_unix_nano: end_ns,
         attributes: attrs,
@@ -120,14 +117,14 @@ pub async fn export_span(
     init.body = Some(wasm_bindgen::JsValue::from(js_array));
 
     match worker::Fetch::Request(
-        worker::Request::new_with_init(&url, &init).map_err(|e| format!("build req: {:?}", e))?
+        worker::Request::new_with_init(&url, &init).map_err(|e| format!("build req: {:?}", e))?,
     )
     .send()
     .await
     {
         Ok(r) => {
             let code = r.status_code();
-            if code >= 200 && code < 300 {
+            if (200..300).contains(&code) {
                 Ok(())
             } else {
                 Err(format!("otel collector returned {}", code))
@@ -147,9 +144,10 @@ fn hex_to_bytes(hex: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use prost::Message;
+
     use super::*;
     use crate::observability::otlp_proto::any_value;
-    use prost::Message;
 
     #[test]
     fn test_hex_to_bytes() {
@@ -198,7 +196,7 @@ mod tests {
                         trace_state: String::new(),
                         parent_span_id: vec![],
                         name: "test-span".into(),
-        kind: 2, // SpanKind::Server
+                        kind: 2, // SpanKind::Server
                         start_time_unix_nano: 1_000_000_000,
                         end_time_unix_nano: 2_000_000_000,
                         attributes: vec![],
@@ -217,6 +215,4 @@ mod tests {
         // Field 1 (resource_spans), wire type 2 (length-delimited) = 0x0a
         assert_eq!(encoded[0], 0x0a, "first byte should be field 1 tag");
     }
-
-
 }
