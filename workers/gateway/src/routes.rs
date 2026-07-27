@@ -1,6 +1,7 @@
 use cloudflare_shared::{
     observability::{
         health::{DependencyHealth, HealthStatus},
+        loki::{buffer_event, push_logs},
         otel::export_span,
         trace_context::TraceContext,
     },
@@ -172,6 +173,8 @@ impl Router {
         logger().response(&method, path, status, duration_ms, &ctx).emit();
         log_buffer().push(logger().response(&method, path, status, duration_ms, &ctx));
 
+        buffer_event(logger().response(&method, path, status, duration_ms, &ctx));
+
         resp.headers().set("X-Request-Id", &req_id)?;
         ctx.inject_into_response(&mut resp)?;
 
@@ -188,6 +191,14 @@ impl Router {
                 if let Err(e) = export_span(&url, "gateway", &tc, None, &nm, st, end, &m, &p, sc, None).await {
                     console_log!("otel export error: {}", e);
                 }
+            });
+        }
+
+        if let Ok(loki_url) = env.var("LOKI_ENDPOINT") {
+            let loki_url = loki_url.to_string();
+            let tenant_id = env.var("LOKI_TENANT_ID").ok().map(|v| v.to_string());
+            cx.wait_until(async move {
+                push_logs(&loki_url, tenant_id.as_deref()).await;
             });
         }
 

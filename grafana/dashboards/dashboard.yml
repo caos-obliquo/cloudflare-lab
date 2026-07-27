@@ -1,0 +1,15 @@
+# Grafana dashboard auto-provisioning.
+# Reads importable JSON dashboards from /var/lib/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: "cloudflare-lab"
+    orgId: 1
+    folder: ""
+    folderUid: ""
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
