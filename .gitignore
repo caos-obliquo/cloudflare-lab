@@ -32,6 +32,7 @@ Thumbs.db
 # Agent artifacts
 .omo/
 .opencode/
+SESSION-NOTES.md
 
 # Env files (secrets)
 .env
