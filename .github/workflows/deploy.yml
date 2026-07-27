@@ -69,8 +69,6 @@ jobs:
     needs: resolve-env
     runs-on: ubuntu-latest
     environment: ${{ needs.resolve-env.outputs.env }}
-    env:
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -87,8 +85,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/auth
           command: deploy --env ${{ needs.resolve-env.outputs.env }}
-          secrets: |
-            SESSION_SECRET
 
   deploy-gateway:
     needs: [resolve-env, deploy-auth]
@@ -115,8 +111,6 @@ jobs:
     needs: [resolve-env, deploy-auth]
     runs-on: ubuntu-latest
     environment: ${{ needs.resolve-env.outputs.env }}
-    env:
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -133,8 +127,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/analytics
           command: deploy --env ${{ needs.resolve-env.outputs.env }}
-          secrets: |
-            SESSION_SECRET
 
   smoke:
     needs: [resolve-env, deploy-gateway, deploy-analytics]
