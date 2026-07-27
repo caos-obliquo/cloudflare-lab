@@ -1,0 +1,38 @@
+# Prometheus config for cloudflare-lab observability stack.
+# Scrapes worker /metrics endpoints and Prometheus self.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "gateway-worker"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8787"]
+    relabel_configs:
+      - target_label: worker
+        replacement: "gateway"
+
+  # Auth worker does not expose /metrics yet (structured logs only).
+  # Target configured for future use.
+  - job_name: "auth-worker"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8788"]
+    relabel_configs:
+      - target_label: worker
+        replacement: "auth"
+
+  # Analytics worker does not expose /metrics yet (structured logs only).
+  # Target configured for future use.
+  - job_name: "analytics-worker"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8789"]
+    relabel_configs:
+      - target_label: worker
+        replacement: "analytics"
