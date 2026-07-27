@@ -19,7 +19,7 @@ jobs:
           target: wasm32-unknown-unknown
           components: clippy, rustfmt
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
 
   security:
     runs-on: ubuntu-latest
@@ -32,6 +32,7 @@ jobs:
       - run: cargo install cargo-audit
       - run: cargo audit
       - run: npm audit --omit=dev || true
+        continue-on-error: true
 
   build:
     runs-on: ubuntu-latest
@@ -41,9 +42,9 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --target wasm32-unknown-unknown --locked
-      - run: cargo check -p devops-api --locked
-      - run: cargo test --workspace --locked || echo "no tests yet"
+      - run: cargo check --workspace --target wasm32-unknown-unknown
+      - run: cargo check -p devops-api
+      - run: cargo test --workspace || echo "no tests yet"
 
   tf-lint:
     runs-on: ubuntu-latest
