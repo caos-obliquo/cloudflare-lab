@@ -1,8 +1,8 @@
 //! SigV4 signing for Lambda Function URLs. Digest + HMAC-SHA256 via ring.
 
-use ring::hmac;
-use ring::digest;
 use std::fmt::Write;
+
+use ring::{digest, hmac};
 
 pub struct SigV4Signer {
     access_key: String,
@@ -22,13 +22,7 @@ impl SigV4Signer {
     }
 
     // Returns the Authorization header value for a SigV4-signed request.
-    pub fn sign_request(
-        &self,
-        method: &str,
-        url: &str,
-        body: &[u8],
-        amz_date: &str,
-    ) -> String {
+    pub fn sign_request(&self, method: &str, url: &str, body: &[u8], amz_date: &str) -> String {
         let payload_hash = sha256_hex(body);
         let host = extract_host(url);
 
@@ -50,12 +44,7 @@ impl SigV4Signer {
         let canonical_hash = sha256_hex(canonical_request.as_bytes());
 
         // Credential scope bounds signature to date/region/service.
-        let credential_scope = format!(
-            "{}/{}/{}/aws4_request",
-            &amz_date[..8],
-            self.region,
-            self.service
-        );
+        let credential_scope = format!("{}/{}/{}/aws4_request", &amz_date[..8], self.region, self.service);
 
         let string_to_sign = format!(
             "AWS4-HMAC-SHA256\n{}\n{}\n{}",
@@ -63,9 +52,7 @@ impl SigV4Signer {
         );
 
         let signing_key = self.derive_key(&amz_date[..8]);
-        let signature = hex_encode(
-            hmac::sign(&signing_key, string_to_sign.as_bytes()).as_ref(),
-        );
+        let signature = hex_encode(hmac::sign(&signing_key, string_to_sign.as_bytes()).as_ref());
 
         format!(
             "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
@@ -83,14 +70,8 @@ impl SigV4Signer {
             &hmac::Key::new(hmac::HMAC_SHA256, format!("AWS4{}", self.secret_key).as_bytes()),
             date.as_bytes(),
         );
-        let k2 = hmac::sign(
-            &hmac::Key::new(hmac::HMAC_SHA256, k1.as_ref()),
-            self.region.as_bytes(),
-        );
-        let k3 = hmac::sign(
-            &hmac::Key::new(hmac::HMAC_SHA256, k2.as_ref()),
-            self.service.as_bytes(),
-        );
+        let k2 = hmac::sign(&hmac::Key::new(hmac::HMAC_SHA256, k1.as_ref()), self.region.as_bytes());
+        let k3 = hmac::sign(&hmac::Key::new(hmac::HMAC_SHA256, k2.as_ref()), self.service.as_bytes());
         hmac::Key::new(
             hmac::HMAC_SHA256,
             hmac::sign(&hmac::Key::new(hmac::HMAC_SHA256, k3.as_ref()), b"aws4_request").as_ref(),
@@ -126,20 +107,31 @@ mod tests {
 
     #[test]
     fn test_extract_host() {
-        assert_eq!(extract_host("https://abc123.lambda-url.us-east-1.on.aws/"), "abc123.lambda-url.us-east-1.on.aws");
+        assert_eq!(
+            extract_host("https://abc123.lambda-url.us-east-1.on.aws/"),
+            "abc123.lambda-url.us-east-1.on.aws"
+        );
     }
 
     #[test]
     fn test_sha256_hex() {
         let result = sha256_hex(b"hello");
         assert_eq!(result.len(), 64);
-        assert_eq!(result, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        assert_eq!(
+            result,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
     }
 
     #[test]
     fn test_signing_key_derivation() {
         let signer = SigV4Signer::new("AKIDEXAMPLE", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY");
-        let auth = signer.sign_request("POST", "https://lambda.us-east-1.amazonaws.com/", b"{}", "20260720T120000Z");
+        let auth = signer.sign_request(
+            "POST",
+            "https://lambda.us-east-1.amazonaws.com/",
+            b"{}",
+            "20260720T120000Z",
+        );
         assert!(auth.starts_with("AWS4-HMAC-SHA256"));
     }
 }

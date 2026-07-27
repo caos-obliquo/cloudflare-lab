@@ -1,14 +1,14 @@
 //! Analytics Worker — D1 event tracking, Bearer auth.
 
-use cloudflare_shared::observability::structured_log::Logger;
-use cloudflare_shared::observability::trace_context::TraceContext;
-use cloudflare_shared::response::json_error_response;
-use cloudflare_shared::session::validate_token;
-use cloudflare_shared::tracing::request_id_for_request;
+use cloudflare_shared::{
+    observability::{structured_log::Logger, trace_context::TraceContext},
+    response::json_error_response,
+    session::validate_token,
+    tracing::request_id_for_request,
+};
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
-use worker::web_sys;
-use worker::*;
+use worker::{web_sys, *};
 
 #[derive(Deserialize)]
 struct TrackRequest {
@@ -17,7 +17,8 @@ struct TrackRequest {
 }
 
 fn session_secret(env: &Env) -> Result<Vec<u8>> {
-    Ok(env.var("SESSION_SECRET")
+    Ok(env
+        .var("SESSION_SECRET")
         .map_err(|_| Error::from("SESSION_SECRET not configured"))?
         .to_string()
         .into_bytes())
@@ -66,7 +67,10 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     logger.request(&method, path, &ctx).emit();
 
     let mut resp = match (method.as_str(), path) {
-        ("GET", "/") => json_response(200, &serde_json::json!({"status":"ok","service":"analytics-worker","routes":["/track","/events","/summary"]})),
+        ("GET", "/") => json_response(
+            200,
+            &serde_json::json!({"status":"ok","service":"analytics-worker","routes":["/track","/events","/summary"]}),
+        ),
         ("POST", "/track") => track(req, &env).await,
         ("GET", "/events") => events(req, &env).await,
         ("GET", "/summary") => summary(req, &env).await,
@@ -89,20 +93,32 @@ async fn track(mut req: Request, env: &Env) -> Result<Response> {
         .bind(&[JsValue::from(&body.event_type), JsValue::from(&data)])?
         .run()
         .await?;
-    json_response(201, &serde_json::json!({"status":"ok","message":"Event tracked","event_type":body.event_type}))
+    json_response(
+        201,
+        &serde_json::json!({"status":"ok","message":"Event tracked","event_type":body.event_type}),
+    )
 }
 
 async fn events(req: Request, env: &Env) -> Result<Response> {
     let _user = require_auth(&req, env).await?;
     let db = env.d1("D1")?;
-    let query: std::collections::HashMap<String, String> = req.url()?.query_pairs()
+    let query: std::collections::HashMap<String, String> = req
+        .url()?
+        .query_pairs()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
-    let limit: u32 = query.get("limit").and_then(|v| v.parse().ok()).unwrap_or(20).clamp(1, 100);
+    let limit: u32 = query
+        .get("limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20)
+        .clamp(1, 100);
     let offset: u32 = query.get("cursor").and_then(|v| v.parse().ok()).unwrap_or(0);
 
-    let total = db.prepare("SELECT COUNT(*) as count FROM analytics_events")
-        .first::<i64>(Some("count")).await?.unwrap_or(0);
+    let total = db
+        .prepare("SELECT COUNT(*) as count FROM analytics_events")
+        .first::<i64>(Some("count"))
+        .await?
+        .unwrap_or(0);
     let result = db.prepare("SELECT id, event_type, event_data, created_at FROM analytics_events ORDER BY created_at DESC LIMIT ?1 OFFSET ?2")
         .bind(&[JsValue::from(limit as i64), JsValue::from(offset as i64)])?
         .all().await?;
@@ -110,20 +126,35 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
 
     let next_offset = offset + limit;
     let has_more = (next_offset as i64) < total;
-    let next_cursor = if has_more { serde_json::json!(next_offset) } else { serde_json::Value::Null };
+    let next_cursor = if has_more {
+        serde_json::json!(next_offset)
+    } else {
+        serde_json::Value::Null
+    };
 
-    json_response(200, &serde_json::json!({"status":"ok","count":rows.len(),"events":rows,"limit":limit,"cursor":offset,"next_cursor":next_cursor,"total":total}))
+    json_response(
+        200,
+        &serde_json::json!({"status":"ok","count":rows.len(),"events":rows,"limit":limit,"cursor":offset,"next_cursor":next_cursor,"total":total}),
+    )
 }
 
 async fn summary(req: Request, env: &Env) -> Result<Response> {
     let _user = require_auth(&req, env).await?;
     let db = env.d1("D1")?;
-    let total = db.prepare("SELECT COUNT(*) as count FROM analytics_events")
-        .first::<i64>(Some("count")).await?.unwrap_or(0);
-    let by_type = db.prepare("SELECT event_type, COUNT(*) as count FROM analytics_events GROUP BY event_type ORDER BY count DESC")
-        .all().await?;
+    let total = db
+        .prepare("SELECT COUNT(*) as count FROM analytics_events")
+        .first::<i64>(Some("count"))
+        .await?
+        .unwrap_or(0);
+    let by_type = db
+        .prepare("SELECT event_type, COUNT(*) as count FROM analytics_events GROUP BY event_type ORDER BY count DESC")
+        .all()
+        .await?;
     let type_rows = by_type.results::<serde_json::Value>()?;
-    json_response(200, &serde_json::json!({"status":"ok","total_events":total,"by_type":type_rows}))
+    json_response(
+        200,
+        &serde_json::json!({"status":"ok","total_events":total,"by_type":type_rows}),
+    )
 }
 
 fn json_response(status: u16, data: &serde_json::Value) -> Result<Response> {

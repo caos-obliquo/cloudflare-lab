@@ -45,17 +45,13 @@ jobs:
       - run: cargo check -p devops-api --locked
       - run: cargo test --workspace --locked || echo "no tests yet"
 
-  tf-plan:
+  tf-lint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9
+      - run: terraform fmt -check -diff
       - run: terraform init -backend=false
-        continue-on-error: true
       - run: terraform validate
-      - run: terraform plan -out=tfplan -no-color || echo "plan skipped (no backend)"

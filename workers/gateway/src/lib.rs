@@ -5,9 +5,12 @@ mod handlers;
 mod routes;
 mod utils;
 
-use cloudflare_shared::observability::metrics::MetricsRegistry;
-use cloudflare_shared::observability::structured_log::{LogBuffer, Logger};
 use std::sync::OnceLock;
+
+use cloudflare_shared::observability::{
+    metrics::MetricsRegistry,
+    structured_log::{LogBuffer, Logger},
+};
 use wasm_bindgen::JsValue;
 use worker::*;
 
@@ -36,7 +39,9 @@ async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
 #[event(queue)]
 async fn queue(message_batch: MessageBatch<String>, env: Env, _ctx: Context) -> Result<()> {
     let messages = message_batch.messages()?;
-    logger().info(&format!("Received {} messages from queue", messages.len())).emit();
+    logger()
+        .info(&format!("Received {} messages from queue", messages.len()))
+        .emit();
     let db = env.d1("D1")?;
 
     for msg in messages {
@@ -44,12 +49,16 @@ async fn queue(message_batch: MessageBatch<String>, env: Env, _ctx: Context) -> 
         match serde_json::from_str::<serde_json::Value>(&body) {
             Ok(val) => {
                 let event_type = val.get("event_type").and_then(|v| v.as_str()).unwrap_or("queue_event");
-                match db.prepare("INSERT INTO analytics_events (event_type, event_data) VALUES (?1, ?2)")
+                match db
+                    .prepare("INSERT INTO analytics_events (event_type, event_data) VALUES (?1, ?2)")
                     .bind(&[JsValue::from(event_type), JsValue::from(&body)])?
-                    .run().await
+                    .run()
+                    .await
                 {
                     Ok(_) => {
-                        logger().info(&format!("Processed queue message: {}", event_type)).emit();
+                        logger()
+                            .info(&format!("Processed queue message: {}", event_type))
+                            .emit();
                         msg.ack();
                     }
                     Err(e) => {
@@ -59,7 +68,9 @@ async fn queue(message_batch: MessageBatch<String>, env: Env, _ctx: Context) -> 
                 }
             }
             Err(e) => {
-                logger().warn(&format!("Queue parse error: {:?}, body: {}", e, body)).emit();
+                logger()
+                    .warn(&format!("Queue parse error: {:?}, body: {}", e, body))
+                    .emit();
                 msg.ack();
             }
         }

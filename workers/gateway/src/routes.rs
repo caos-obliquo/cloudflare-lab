@@ -1,11 +1,18 @@
-use crate::handlers::{ai, d1, kv, queue};
-use crate::utils::response::json_response;
-use crate::{log_buffer, logger, metrics};
-use cloudflare_shared::observability::health::{DependencyHealth, HealthStatus};
-use cloudflare_shared::observability::otel::export_span;
-use cloudflare_shared::observability::trace_context::TraceContext;
-use cloudflare_shared::tracing::request_id_for_request;
+use cloudflare_shared::{
+    observability::{
+        health::{DependencyHealth, HealthStatus},
+        otel::export_span,
+        trace_context::TraceContext,
+    },
+    tracing::request_id_for_request,
+};
 use worker::*;
+
+use crate::{
+    handlers::{ai, d1, kv, queue},
+    log_buffer, logger, metrics,
+    utils::response::json_response,
+};
 
 // Hand-rolled router. No framework — keeps WASM binary small. OTel export via cx.wait_until() (async, non-blocking).
 pub struct Router;
@@ -37,7 +44,10 @@ impl Router {
         logger().request(&method, &path, &ctx).emit();
 
         let mut resp = match path {
-            "/" => json_response(200, &serde_json::json!({"status":"ok","service":"gateway-worker","language":"rust","routes":["/kv","/d1","/queue","/ai","/protected","/health","/livez","/readyz","/v1/models","/metrics","/logs"]})),
+            "/" => json_response(
+                200,
+                &serde_json::json!({"status":"ok","service":"gateway-worker","language":"rust","routes":["/kv","/d1","/queue","/ai","/protected","/health","/livez","/readyz","/v1/models","/metrics","/logs"]}),
+            ),
             "/kv" => kv::handler(&env).await,
             "/d1" => d1::handler(&env).await,
             "/queue" => queue::handler(&env).await,
@@ -61,7 +71,13 @@ impl Router {
             "/health" => {
                 let results = check_bindings(&env);
                 let all_healthy = results.iter().all(|d| d.status == HealthStatus::Healthy);
-                let overall = if all_healthy { "healthy" } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) { "unhealthy" } else { "degraded" };
+                let overall = if all_healthy {
+                    "healthy"
+                } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) {
+                    "unhealthy"
+                } else {
+                    "degraded"
+                };
                 let status_code = if all_healthy { 200 } else { 503 };
                 json_response(status_code, &serde_json::json!({"status":overall,"checks":results}))
             }
@@ -71,12 +87,21 @@ impl Router {
             "/readyz" => {
                 let results = check_bindings(&env);
                 let all_ready = results.iter().all(|d| d.status == HealthStatus::Healthy);
-                let status_str = if all_ready { "ready" } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) { "not_ready" } else { "degraded" };
+                let status_str = if all_ready {
+                    "ready"
+                } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) {
+                    "not_ready"
+                } else {
+                    "degraded"
+                };
                 let code = if all_ready { 200 } else { 503 };
                 json_response(code, &serde_json::json!({"status":status_str,"checks":results}))
             }
             // OpenAI-compatible model listing for AI SDK compatibility.
-            "/v1/models" => json_response(200, &serde_json::json!({"object":"list","data":[{"id":"@cf/meta/llama-3.1-8b-instruct-fast","name":"Llama 3.1 8B Instruct (Fast)"},{"id":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","name":"Llama 3.3 70B Instruct (FP8 Fast)"},{"id":"@cf/moonshotai/kimi-k2.6","name":"Kimi K2.6"},{"id":"@cf/qwen/qwq-32b","name":"Qwen QwQ 32B"},{"id":"@cf/meta/llama-3.2-3b-instruct","name":"Llama 3.2 3B Instruct"},{"id":"@cf/meta/llama-3.2-1b-instruct","name":"Llama 3.2 1B Instruct"}]})),
+            "/v1/models" => json_response(
+                200,
+                &serde_json::json!({"object":"list","data":[{"id":"@cf/meta/llama-3.1-8b-instruct-fast","name":"Llama 3.1 8B Instruct (Fast)"},{"id":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","name":"Llama 3.3 70B Instruct (FP8 Fast)"},{"id":"@cf/moonshotai/kimi-k2.6","name":"Kimi K2.6"},{"id":"@cf/qwen/qwq-32b","name":"Qwen QwQ 32B"},{"id":"@cf/meta/llama-3.2-3b-instruct","name":"Llama 3.2 3B Instruct"},{"id":"@cf/meta/llama-3.2-1b-instruct","name":"Llama 3.2 1B Instruct"}]}),
+            ),
 
             // Proxy to AWS Lambda via SigV4-signed request (handlers/lambda.rs).
             "/lambda/query" => crate::handlers::lambda::handler(req, &env, &ctx).await,
@@ -95,15 +120,26 @@ impl Router {
                 let mut init = RequestInit::new();
                 init.with_method(Method::Get);
                 init.with_headers(headers);
-                let auth_response = auth_worker.fetch("https://auth-worker.internal/verify", Some(init)).await?;
+                let auth_response = auth_worker
+                    .fetch("https://auth-worker.internal/verify", Some(init))
+                    .await?;
                 if auth_response.status_code() == 200 {
-                    json_response(200, &serde_json::json!({"status":"ok","message":"Access granted - token verified via auth-worker","auth_status":auth_response.status_code()}))
+                    json_response(
+                        200,
+                        &serde_json::json!({"status":"ok","message":"Access granted - token verified via auth-worker","auth_status":auth_response.status_code()}),
+                    )
                 } else {
-                    json_response(403, &serde_json::json!({"status":"error","error":"Access denied - invalid or missing token","auth_status":auth_response.status_code()}))
+                    json_response(
+                        403,
+                        &serde_json::json!({"status":"error","error":"Access denied - invalid or missing token","auth_status":auth_response.status_code()}),
+                    )
                 }
             }
 
-            _ => json_response(404, &serde_json::json!({"status":"error","error":"Not found","available_routes":["/","/kv","/d1","/queue","/ai","/protected","/health","/livez","/readyz","/v1/models","/metrics","/logs"]})),
+            _ => json_response(
+                404,
+                &serde_json::json!({"status":"error","error":"Not found","available_routes":["/","/kv","/d1","/queue","/ai","/protected","/health","/livez","/readyz","/v1/models","/metrics","/logs"]}),
+            ),
         }?;
 
         let duration_ms = Date::now().as_millis() - start_ms;
@@ -115,9 +151,7 @@ impl Router {
 
         // Structured log for completed response.
         logger().response(&method, path, status, duration_ms, &ctx).emit();
-        log_buffer().push(
-            logger().response(&method, path, status, duration_ms, &ctx)
-        );
+        log_buffer().push(logger().response(&method, path, status, duration_ms, &ctx));
 
         resp.headers().set("X-Request-Id", &req_id)?;
         ctx.inject_into_response(&mut resp)?;
@@ -132,9 +166,7 @@ impl Router {
             let sc = status;
             cx.wait_until(async move {
                 let end = Date::now().as_millis() as f64;
-                if let Err(e) = export_span(
-                    &url, "gateway", &tc, None, &nm, st, end, &m, &p, sc, None,
-                ).await {
+                if let Err(e) = export_span(&url, "gateway", &tc, None, &nm, st, end, &m, &p, sc, None).await {
                     console_log!("otel export error: {}", e);
                 }
             });
@@ -149,7 +181,10 @@ fn check_bindings(env: &Env) -> Vec<DependencyHealth> {
     let mut add = |name: &str, res: Result<(), String>| {
         let s = Date::now().as_millis() as f64;
         match res {
-            Ok(()) => r.push(DependencyHealth::healthy(name, (Date::now().as_millis() as f64 - s) as u64)),
+            Ok(()) => r.push(DependencyHealth::healthy(
+                name,
+                (Date::now().as_millis() as f64 - s) as u64,
+            )),
             Err(e) => r.push(DependencyHealth::unhealthy(name, &e)),
         }
     };

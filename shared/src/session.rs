@@ -8,7 +8,7 @@ const DEFAULT_TTL_SECS: u64 = 7 * 24 * 60 * 60;
 // Parsed session token.
 pub struct SessionToken {
     pub username: String,
-    pub expires_at: u64,     // unix timestamp
+    pub expires_at: u64, // unix timestamp
     pub purpose: String,
 }
 
@@ -58,13 +58,11 @@ pub fn parse_token(token_str: &str, secret: &[u8], expected_purpose: &str) -> Re
 
     // Decode base64url payload.
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    let payload_bytes = base64::Engine::decode(&URL_SAFE_NO_PAD, payload_b64)
-        .map_err(|_| "bad payload encoding")?;
+    let payload_bytes = base64::Engine::decode(&URL_SAFE_NO_PAD, payload_b64).map_err(|_| "bad payload encoding")?;
     let payload_str = String::from_utf8(payload_bytes).map_err(|_| "bad payload utf8")?;
 
     // Decode signature.
-    let signature = base64::Engine::decode(&URL_SAFE_NO_PAD, sig_b64)
-        .map_err(|_| "bad sig encoding")?;
+    let signature = base64::Engine::decode(&URL_SAFE_NO_PAD, sig_b64).map_err(|_| "bad sig encoding")?;
 
     // Verify HMAC: signed_data = purpose + ":" + payload
     // The purpose is taken from the token's payload, NOT from expected_purpose.
@@ -75,8 +73,7 @@ pub fn parse_token(token_str: &str, secret: &[u8], expected_purpose: &str) -> Re
     }
 
     // Parse JSON payload.
-    let payload: serde_json::Value = serde_json::from_str(&payload_str)
-        .map_err(|_| "bad payload json")?;
+    let payload: serde_json::Value = serde_json::from_str(&payload_str).map_err(|_| "bad payload json")?;
 
     let username = payload["u"].as_str().ok_or("missing user")?.to_string();
     let expires_at = payload["e"].as_u64().ok_or("missing exp")?;
@@ -84,7 +81,10 @@ pub fn parse_token(token_str: &str, secret: &[u8], expected_purpose: &str) -> Re
 
     // Verify purpose matches expected.
     if purpose != expected_purpose {
-        return Err(format!("wrong purpose: expected '{}', got '{}'", expected_purpose, purpose));
+        return Err(format!(
+            "wrong purpose: expected '{}', got '{}'",
+            expected_purpose, purpose
+        ));
     }
 
     // Check expiry.
@@ -93,7 +93,11 @@ pub fn parse_token(token_str: &str, secret: &[u8], expected_purpose: &str) -> Re
         return Err("token expired".into());
     }
 
-    Ok(SessionToken { username, expires_at, purpose })
+    Ok(SessionToken {
+        username,
+        expires_at,
+        purpose,
+    })
 }
 
 // Quick validation for HTTP handlers: parse token, return username or None.

@@ -1,6 +1,7 @@
-use crate::utils::response::json_response;
 use cloudflare_shared::bindings::{AiInput, EnvBindings};
 use worker::*;
+
+use crate::utils::response::json_response;
 
 // GET /ai — Workers AI (Llama 3.1 8B)
 pub async fn handler(env: &Env) -> Result<Response> {
@@ -11,10 +12,7 @@ pub async fn handler(env: &Env) -> Result<Response> {
         max_tokens: 20,
     };
 
-    let response: serde_json::Value = bindings
-        .ai
-        .run("@cf/meta/llama-3.1-8b-instruct-fast", &input)
-        .await?;
+    let response: serde_json::Value = bindings.ai.run("@cf/meta/llama-3.1-8b-instruct-fast", &input).await?;
 
     let result = response
         .get("response")

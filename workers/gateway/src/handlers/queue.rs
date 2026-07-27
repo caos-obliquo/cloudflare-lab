@@ -1,6 +1,7 @@
-use crate::utils::response::json_response;
 use cloudflare_shared::bindings::EnvBindings;
 use worker::*;
+
+use crate::utils::response::json_response;
 
 // GET /queue — send message to Queues (consumed by #[event(queue)] in lib.rs)
 pub async fn handler(env: &Env) -> Result<Response> {
