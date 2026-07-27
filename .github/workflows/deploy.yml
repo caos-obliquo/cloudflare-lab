@@ -69,6 +69,8 @@ jobs:
     needs: resolve-env
     runs-on: ubuntu-latest
     environment: ${{ needs.resolve-env.outputs.env }}
+    env:
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -113,6 +115,8 @@ jobs:
     needs: [resolve-env, deploy-auth]
     runs-on: ubuntu-latest
     environment: ${{ needs.resolve-env.outputs.env }}
+    env:
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
