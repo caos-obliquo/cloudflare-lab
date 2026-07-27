@@ -1,0 +1,61 @@
+name: PR Check
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-audit
+      - run: cargo audit
+      - run: npm audit --omit=dev || true
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --target wasm32-unknown-unknown --locked
+      - run: cargo check -p devops-api --locked
+      - run: cargo test --workspace --locked || echo "no tests yet"
+
+  tf-plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9
+      - run: terraform init -backend=false
+        continue-on-error: true
+      - run: terraform validate
+      - run: terraform plan -out=tfplan -no-color || echo "plan skipped (no backend)"

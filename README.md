@@ -1,6 +1,6 @@
 # Cloudflare Lab
 
-Rust Workers + AWS Lambda (LocalStack) + OTel/SigNoz observability.
+CF Workers multi-cloud portfolio: Rust Workers (auth/gateway/analytics), AWS Lambda crate, Terraform IaC, OTel/SigNoz observability, LocalStack for local AWS dev.
 
 ## Architecture
 

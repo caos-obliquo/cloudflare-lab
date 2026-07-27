@@ -1,0 +1,44 @@
+name: Security Scan
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # weekly Monday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-audit
+      - run: cargo audit
+      - run: cargo audit --json > audit-report.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-report.json
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm audit --omit=dev --json > npm-audit-report.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
