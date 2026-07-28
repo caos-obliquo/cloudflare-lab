@@ -57,7 +57,7 @@ jobs:
           command: deploy
 
   deploy-gateway:
-    needs: build
+    needs: [build, deploy-auth]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
           command: deploy
 
   deploy-analytics:
-    needs: build
+    needs: [build, deploy-gateway]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
