@@ -8,9 +8,9 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type = "metric"
-        x    = 0
-        y    = 0
+        type   = "metric"
+        x      = 0
+        y      = 0
         width  = 12
         height = 6
         properties = {
@@ -18,8 +18,8 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
           stacked = false
           metrics = [
             ["AWS/Lambda", "Invocations", { stat = "Sum", label = "Invocations" }],
-            ["AWS/Lambda", "Errors",      { stat = "Sum", label = "Errors" }],
-            ["AWS/Lambda", "Throttles",   { stat = "Sum", label = "Throttles" }],
+            ["AWS/Lambda", "Errors", { stat = "Sum", label = "Errors" }],
+            ["AWS/Lambda", "Throttles", { stat = "Sum", label = "Throttles" }],
           ]
           region = var.aws_region
           title  = "Lambda Invocations / Errors / Throttles (${var.environment})"
@@ -28,9 +28,9 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
         }
       },
       {
-        type = "metric"
-        x    = 12
-        y    = 0
+        type   = "metric"
+        x      = 12
+        y      = 0
         width  = 12
         height = 6
         properties = {
@@ -48,9 +48,9 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
         }
       },
       {
-        type = "metric"
-        x    = 0
-        y    = 6
+        type   = "metric"
+        x      = 0
+        y      = 6
         width  = 8
         height = 6
         properties = {
@@ -66,9 +66,9 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
         }
       },
       {
-        type = "metric"
-        x    = 8
-        y    = 6
+        type   = "metric"
+        x      = 8
+        y      = 6
         width  = 8
         height = 6
         properties = {
@@ -84,9 +84,9 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
         }
       },
       {
-        type = "log"
-        x    = 16
-        y    = 6
+        type   = "log"
+        x      = 16
+        y      = 6
         width  = 8
         height = 6
         properties = {
@@ -97,17 +97,17 @@ resource "aws_cloudwatch_dashboard" "devops_api" {
         }
       },
       {
-        type = "metric"
-        x    = 0
-        y    = 12
+        type   = "metric"
+        x      = 0
+        y      = 12
         width  = 24
         height = 6
         properties = {
           view    = "timeSeries"
           stacked = false
           metrics = [
-            ["AWS/Lambda", "Errors",      { stat = "Sum", label = "Error Count" }],
-            [{ expression: "m1 / MAX(m1)", label: "Error Rate (normalized)" }],
+            ["AWS/Lambda", "Errors", { stat = "Sum", label = "Error Count" }],
+            [{ expression : "m1 / MAX(m1)", label : "Error Rate (normalized)" }],
           ]
           region = var.aws_region
           title  = "Error Rate — ${var.environment}"
@@ -133,7 +133,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   statistic           = "Sum"
   threshold           = 0
   alarm_description   = "Lambda function returned errors in the last 5 minutes"
-  alarm_actions       = []  # wire SNS topic ARN here
+  alarm_actions       = [] # wire SNS topic ARN here
   ok_actions          = []
 
   dimensions = {

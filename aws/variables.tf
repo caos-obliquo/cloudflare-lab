@@ -31,3 +31,33 @@ variable "worker_auth_url" {
   type        = string
   sensitive   = true
 }
+
+# ─── Cost monitoring ──────────────────────────────────────
+
+variable "budget_monthly_limit" {
+  description = "Monthly budget limit in USD for AWS resources"
+  type        = string
+  default     = "50"
+}
+
+variable "budget_alert_emails" {
+  description = "Email addresses for AWS budget alerts"
+  type        = list(string)
+  default     = ["alerts@example.com"]
+}
+
+# ─── Lambda performance ───────────────────────────────────
+
+variable "lambda_provisioned_concurrency" {
+  description = "Provisioned concurrency for Lambda (0 = disabled)"
+  type        = number
+  default     = 0
+}
+
+# ─── Log retention ────────────────────────────────────────
+
+variable "log_retention_days" {
+  description = "CloudWatch Log Group retention in days"
+  type        = number
+  default     = 30
+}
