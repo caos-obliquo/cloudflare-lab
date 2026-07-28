@@ -47,10 +47,7 @@ fn test_counter_render_with_labels() {
     labels.insert("path".to_string(), "/health".to_string());
     let c = Counter::new("test_total", labels);
     c.inc();
-    assert_eq!(
-        c.to_prometheus(),
-        "test_total{method=\"GET\",path=\"/health\"} 1"
-    );
+    assert_eq!(c.to_prometheus(), "test_total{method=\"GET\",path=\"/health\"} 1");
 }
 
 // ---------------------------------------------------------------------------
@@ -145,14 +142,8 @@ fn test_histogram_percentile_values() {
         "p50 should be ~6: got lines:\n{}",
         text
     );
-    assert!(
-        text.contains("pct_ms{quantile=\"0.9\"} 9\n"),
-        "p90 should be ~9"
-    );
-    assert!(
-        text.contains("pct_ms{quantile=\"0.99\"} 10\n"),
-        "p99 should be ~10"
-    );
+    assert!(text.contains("pct_ms{quantile=\"0.9\"} 9\n"), "p90 should be ~9");
+    assert!(text.contains("pct_ms{quantile=\"0.99\"} 10\n"), "p99 should be ~10");
 }
 
 // ---------------------------------------------------------------------------
@@ -193,10 +184,7 @@ fn test_histogram_render_with_labels_preserves_them() {
         );
     }
     // Verify the OLD BUG pattern is NOT present (quantile outside braces)
-    let old_bug = format!(
-        "req_duration_ms{}{{quantile=",
-        "{method=\"GET\",path=\"/health\"}"
-    );
+    let old_bug = format!("req_duration_ms{}{{quantile=", "{method=\"GET\",path=\"/health\"}");
     assert!(
         !text.contains(&old_bug),
         "OLD BUG: labels and quantile must be INSIDE same braces, not concatenated"
@@ -221,9 +209,18 @@ fn test_histogram_render_with_labels_only_one_label() {
 
     let text = h.to_prometheus();
     assert!(text.contains("http_requests{status=\"200\"} 1\n"), "count");
-    assert!(text.contains("http_requests{status=\"200\",quantile=\"0.5\"}"), "p50 with label");
-    assert!(text.contains("http_requests{status=\"200\",quantile=\"0.9\"}"), "p90 with label");
-    assert!(text.contains("http_requests{status=\"200\",quantile=\"0.99\"}"), "p99 with label");
+    assert!(
+        text.contains("http_requests{status=\"200\",quantile=\"0.5\"}"),
+        "p50 with label"
+    );
+    assert!(
+        text.contains("http_requests{status=\"200\",quantile=\"0.9\"}"),
+        "p90 with label"
+    );
+    assert!(
+        text.contains("http_requests{status=\"200\",quantile=\"0.99\"}"),
+        "p99 with label"
+    );
 }
 
 // ---------------------------------------------------------------------------

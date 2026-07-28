@@ -22,10 +22,7 @@ fn test_loki_payload_json_shape() {
     stream.insert("worker".to_string(), "gateway".to_string());
     stream.insert("level".to_string(), "info".to_string());
 
-    let values = vec![vec![
-        "1000000000000000000".to_string(),
-        r#"{"msg":"test"}"#.to_string(),
-    ]];
+    let values = vec![vec!["1000000000000000000".to_string(), r#"{"msg":"test"}"#.to_string()]];
 
     let payload = serde_json::json!({
         "streams": [{
@@ -61,8 +58,7 @@ fn test_loki_stream_grouping_structure() {
         ]
     });
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap();
     let streams = parsed["streams"].as_array().unwrap();
     assert_eq!(streams.len(), 2);
     assert_eq!(streams[0]["stream"]["worker"], "auth");
@@ -104,18 +100,10 @@ fn test_loki_tenant_header_consistency() {
 
 #[test]
 fn test_loki_endpoint_url_format() {
-    let build_url = |endpoint: &str| -> String {
-        format!("{}/loki/api/v1/push", endpoint.trim_end_matches('/'))
-    };
+    let build_url = |endpoint: &str| -> String { format!("{}/loki/api/v1/push", endpoint.trim_end_matches('/')) };
 
-    assert_eq!(
-        build_url("http://loki:3100"),
-        "http://loki:3100/loki/api/v1/push"
-    );
-    assert_eq!(
-        build_url("http://loki:3100/"),
-        "http://loki:3100/loki/api/v1/push"
-    );
+    assert_eq!(build_url("http://loki:3100"), "http://loki:3100/loki/api/v1/push");
+    assert_eq!(build_url("http://loki:3100/"), "http://loki:3100/loki/api/v1/push");
     assert_eq!(
         build_url("https://loki.example.com"),
         "https://loki.example.com/loki/api/v1/push"
@@ -144,10 +132,7 @@ fn test_loki_payload_serde_roundtrip() {
     let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(parsed["streams"][0]["stream"]["worker"], "analytics");
     assert_eq!(parsed["streams"][0]["stream"]["level"], "info");
-    assert_eq!(
-        parsed["streams"][0]["values"][0][0],
-        "1234567890000000000"
-    );
+    assert_eq!(parsed["streams"][0]["values"][0][0], "1234567890000000000");
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 //! Auth Worker — register/login/verify/me, HMAC tokens, pbkdf2, DO rate limiting.
 
-use cloudflare_shared::crypto::{hash_password, verify_legacy_sha256, verify_password};
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use cloudflare_shared::{
     bootstrap::ensure_users_table,
+    crypto::{hash_password, verify_legacy_sha256, verify_password},
     observability::{
         health::{DependencyHealth, HealthStatus},
         structured_log::Logger,
@@ -13,7 +15,6 @@ use cloudflare_shared::{
     tracing::request_id_for_request,
 };
 use serde::Deserialize;
-use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::JsValue;
 use worker::*;
 
@@ -50,6 +51,7 @@ fn validate_password(password: &str) -> Result<()> {
 // DO-based rate limiter: atomic, globally consistent.
 // Uses rate-limiter worker's RateLimiter DO class via binding.
 // Shard key = IP:route (e.g., "1.2.3.4:register").
+#[allow(dead_code)]
 async fn check_rate_limit(req: &Request, env: &Env, route: &str, limit: u64) -> Result<Option<Response>> {
     let ip = req.headers().get("CF-Connecting-IP")?.unwrap_or_default();
     let key = format!("{}:{}", ip, route);
@@ -163,10 +165,7 @@ fn check_bindings(env: &Env) -> Vec<DependencyHealth> {
         }
     };
     add("d1", env.d1("D1").map(|_| ()).map_err(|e| format!("{:?}", e)));
-    add(
-        "kv",
-        env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)),
-    );
+    add("kv", env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)));
     add(
         "rate_limiter",
         env.durable_object("RATE_LIMITER")
@@ -191,7 +190,7 @@ async fn register(mut req: Request, env: &Env) -> Result<Response> {
         .bind(&[JsValue::from(&body.username)])?
         .all()
         .await?;
-    if existing.results::<serde_json::Value>()?.len() > 0 {
+    if !existing.results::<serde_json::Value>()?.is_empty() {
         return json_error_response(409, "Username already exists", "");
     }
     let hashed = hash_password(&body.password);
@@ -225,7 +224,9 @@ async fn login(mut req: Request, env: &Env) -> Result<Response> {
         .all()
         .await?;
     let rows = db_result.results::<serde_json::Value>();
-    let stored_hash = rows?.first().and_then(|r| r.get("password").and_then(|v| v.as_str().map(String::from)));
+    let stored_hash = rows?
+        .first()
+        .and_then(|r| r.get("password").and_then(|v| v.as_str().map(String::from)));
 
     match stored_hash {
         // pbkdf2 match -> sign HMAC token, return to client.
@@ -339,7 +340,12 @@ async fn debug_d1(env: &Env) -> Result<Response> {
     };
     let rows = match d1_result.results::<serde_json::Value>() {
         Ok(r) => r,
-        Err(e) => return json_response(200, &serde_json::json!({"step":"results","error":format!("{}",e),"success":d1_result.success()})),
+        Err(e) => {
+            return json_response(
+                200,
+                &serde_json::json!({"step":"results","error":format!("{}",e),"success":d1_result.success()}),
+            )
+        }
     };
     json_response(200, &serde_json::json!({"step":"done","rows":rows,"count":rows.len()}))
 }
@@ -362,17 +368,23 @@ async fn debug_register(env: &Env) -> Result<Response> {
     };
     let rows = match existing.results::<serde_json::Value>() {
         Ok(r) => r,
-        Err(e) => return json_response(200, &serde_json::json!({"step":"results_deser","error":format!("{}",e),"success":existing.success()})),
+        Err(e) => {
+            return json_response(
+                200,
+                &serde_json::json!({"step":"results_deser","error":format!("{}",e),"success":existing.success()}),
+            )
+        }
     };
-    json_response(200, &serde_json::json!({"step":"select_ok","rows":rows,"count":rows.len()}))
+    json_response(
+        200,
+        &serde_json::json!({"step":"select_ok","rows":rows,"count":rows.len()}),
+    )
 }
 
 // Debug: test hash_password in WASM
-async fn debug_hash(env: &Env) -> Result<Response> {
+async fn debug_hash(_env: &Env) -> Result<Response> {
     let pwd = "TestPass123!";
-    let hashed = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        hash_password(pwd)
-    })) {
+    let hashed = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| hash_password(pwd))) {
         Ok(h) => h,
         Err(e) => {
             let msg = if let Some(s) = e.downcast_ref::<&str>() {

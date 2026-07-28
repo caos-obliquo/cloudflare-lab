@@ -2,8 +2,10 @@
 // Pure logic: manually construct LogEvent instances (LogEvent::new() calls
 // worker::Date::now() which panics on non-wasm targets).
 
-use cloudflare_shared::observability::structured_log::{LogBuffer, LogEvent, LogLevel, Logger};
-use cloudflare_shared::observability::trace_context::TraceContext;
+use cloudflare_shared::observability::{
+    structured_log::{LogBuffer, LogEvent, LogLevel, Logger},
+    trace_context::TraceContext,
+};
 
 /// Helper: create a LogEvent without calling the wasm-dependent constructor.
 fn make_event(level: LogLevel, msg: &str, svc: &str) -> LogEvent {

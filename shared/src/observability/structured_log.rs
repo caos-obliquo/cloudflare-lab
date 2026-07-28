@@ -11,8 +11,8 @@
 use std::sync::Mutex;
 
 use serde::Serialize;
-use super::now_string;
 
+use super::now_string;
 use crate::observability::trace_context::TraceContext;
 
 /// Log severity levels matching standard logging conventions.

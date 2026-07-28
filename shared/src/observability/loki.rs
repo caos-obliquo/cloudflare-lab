@@ -16,8 +16,8 @@ use std::{
 
 use serde::Serialize;
 use wasm_bindgen::JsCast;
-use super::now_millis;
 
+use super::now_millis;
 use crate::observability::structured_log::{LogEvent, LogLevel};
 
 /// Maximum log events to hold in the pre-push buffer.

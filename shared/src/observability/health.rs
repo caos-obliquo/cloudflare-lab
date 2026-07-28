@@ -14,6 +14,7 @@
 use std::sync::Mutex;
 
 use serde::Serialize;
+
 use super::now_string;
 
 /// Health status for a dependency.

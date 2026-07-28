@@ -1,5 +1,7 @@
 //! Analytics Worker — D1 event tracking, Bearer auth.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use cloudflare_shared::{
     bootstrap::ensure_analytics_events_table,
     observability::{
@@ -12,7 +14,6 @@ use cloudflare_shared::{
     tracing::request_id_for_request,
 };
 use serde::Deserialize;
-use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::JsValue;
 use worker::*;
 
@@ -68,10 +69,7 @@ fn check_bindings(env: &Env) -> Vec<DependencyHealth> {
         }
     };
     add("d1", env.d1("D1").map(|_| ()).map_err(|e| format!("{:?}", e)));
-    add(
-        "kv",
-        env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)),
-    );
+    add("kv", env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)));
     r
 }
 
@@ -132,8 +130,10 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }
     resp.headers()
         .set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
-    resp.headers()
-        .set("Access-Control-Allow-Headers", "Content-Type, Authorization, traceparent, x-request-id")?;
+    resp.headers().set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, traceparent, x-request-id",
+    )?;
 
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();

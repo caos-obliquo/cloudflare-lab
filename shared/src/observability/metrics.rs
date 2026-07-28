@@ -130,18 +130,9 @@ impl Histogram {
                 out.push_str(&format!("{}{{quantile=\"0.9\"}} {}\n", self.name, p90));
                 out.push_str(&format!("{}{{quantile=\"0.99\"}} {}\n", self.name, p99));
             } else {
-                out.push_str(&format!(
-                    "{}{{{},quantile=\"0.5\"}} {}\n",
-                    self.name, labels_str, p50
-                ));
-                out.push_str(&format!(
-                    "{}{{{},quantile=\"0.9\"}} {}\n",
-                    self.name, labels_str, p90
-                ));
-                out.push_str(&format!(
-                    "{}{{{},quantile=\"0.99\"}} {}\n",
-                    self.name, labels_str, p99
-                ));
+                out.push_str(&format!("{}{{{},quantile=\"0.5\"}} {}\n", self.name, labels_str, p50));
+                out.push_str(&format!("{}{{{},quantile=\"0.9\"}} {}\n", self.name, labels_str, p90));
+                out.push_str(&format!("{}{{{},quantile=\"0.99\"}} {}\n", self.name, labels_str, p99));
             }
         }
 

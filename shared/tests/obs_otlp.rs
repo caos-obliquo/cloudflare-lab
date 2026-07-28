@@ -1,12 +1,10 @@
 // Integration tests for OTLP protobuf encoding/decoding.
 // Pure protobuf roundtrip — no WASM dependencies, no network calls.
 
-use prost::Message;
-
 use cloudflare_shared::observability::otlp_proto::{
-    any_value, kv_int, kv_str, ExportTraceServiceRequest, Resource, ResourceSpans, Scope, ScopeSpans,
-    Span, Status,
+    any_value, kv_int, kv_str, ExportTraceServiceRequest, Resource, ResourceSpans, Scope, ScopeSpans, Span, Status,
 };
+use prost::Message;
 
 /// Build a fully populated ExportTraceServiceRequest and verify all 12 span
 /// fields survive a protobuf encode→decode roundtrip.
@@ -70,8 +68,7 @@ fn test_span_full_roundtrip() {
     assert!(!encoded.is_empty(), "encoded bytes must not be empty");
 
     // Decode back
-    let decoded = ExportTraceServiceRequest::decode(&encoded[..])
-        .expect("should decode successfully");
+    let decoded = ExportTraceServiceRequest::decode(&encoded[..]).expect("should decode successfully");
 
     // Verify structure
     assert_eq!(decoded.resource_spans.len(), 1);
@@ -321,9 +318,7 @@ fn test_span_root_no_parent() {
 
 #[test]
 fn test_empty_request() {
-    let request = ExportTraceServiceRequest {
-        resource_spans: vec![],
-    };
+    let request = ExportTraceServiceRequest { resource_spans: vec![] };
     let encoded = request.encode_to_vec();
     let decoded = ExportTraceServiceRequest::decode(&encoded[..]).unwrap();
     assert!(decoded.resource_spans.is_empty());

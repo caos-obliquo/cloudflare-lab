@@ -102,37 +102,25 @@ fn test_parse_too_many_parts() {
 #[test]
 fn test_parse_bad_length_trace_id() {
     // 31 hex chars (should be 32)
-    assert!(
-        TraceContext::from_traceparent("00-0000000000000000000000000000000-0000000000000000-01").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-0000000000000000000000000000000-0000000000000000-01").is_none());
     // 33 hex chars
-    assert!(
-        TraceContext::from_traceparent("00-000000000000000000000000000000000-0000000000000000-01").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-000000000000000000000000000000000-0000000000000000-01").is_none());
 }
 
 #[test]
 fn test_parse_bad_length_span_id() {
     // 15 hex chars (should be 16)
-    assert!(
-        TraceContext::from_traceparent("00-00000000000000000000000000000000-000000000000000-01").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-00000000000000000000000000000000-000000000000000-01").is_none());
     // 17 hex chars
-    assert!(
-        TraceContext::from_traceparent("00-00000000000000000000000000000000-00000000000000000-01").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-00000000000000000000000000000000-00000000000000000-01").is_none());
 }
 
 #[test]
 fn test_parse_bad_length_flags() {
     // 1 hex char
-    assert!(
-        TraceContext::from_traceparent("00-00000000000000000000000000000000-0000000000000000-1").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-00000000000000000000000000000000-0000000000000000-1").is_none());
     // 3 hex chars
-    assert!(
-        TraceContext::from_traceparent("00-00000000000000000000000000000000-0000000000000000-111").is_none()
-    );
+    assert!(TraceContext::from_traceparent("00-00000000000000000000000000000000-0000000000000000-111").is_none());
 }
 
 #[test]
@@ -203,10 +191,7 @@ fn test_parse_various_flags() {
     // Any 2 hex chars for flags should be accepted
     let valid_flags = ["00", "01", "ff", "ab"];
     for flags in &valid_flags {
-        let header = format!(
-            "00-00000000000000000000000000000000-0000000000000000-{}",
-            flags
-        );
+        let header = format!("00-00000000000000000000000000000000-0000000000000000-{}", flags);
         let ctx = TraceContext::from_traceparent(&header);
         assert!(ctx.is_some(), "flags {} should be valid", flags);
     }
