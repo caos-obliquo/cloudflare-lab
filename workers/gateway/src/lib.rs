@@ -35,7 +35,8 @@ async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
     routes::Router::route(req, env, ctx).await
 }
 
-// Queue consumer. Per-message ack/retry. Malformed JSON ack'd and dropped (no dead-letter yet).
+// Queue consumer. Per-message ack/retry. Malformed JSON ack'd and dropped.
+// TODO: wire dead-letter queue for poison messages after N retries.
 #[event(queue)]
 async fn queue(message_batch: MessageBatch<String>, env: Env, _ctx: Context) -> Result<()> {
     let messages = message_batch.messages()?;

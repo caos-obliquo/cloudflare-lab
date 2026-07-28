@@ -22,8 +22,8 @@ deploy.yml (push -> main + manual)
 ├── security                 -> ci-security.yml
 ├── build (inline)           cargo check --target wasm32
 ├── deploy-auth              needs: build
-├── deploy-gateway           needs: build
-├── deploy-analytics         needs: build
+├── deploy-gateway           needs: [build, deploy-auth]
+├── deploy-analytics         needs: [build, deploy-gateway]
 └── smoke                    needs: [deploy-auth, deploy-gateway, deploy-analytics]
 ```
 
