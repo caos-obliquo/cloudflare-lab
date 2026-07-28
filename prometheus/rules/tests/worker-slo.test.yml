@@ -1,0 +1,180 @@
+# Promtool unit tests for worker-slo rules.
+#
+# Run: promtool test rules prometheus/rules/tests/worker-slo.test.yml
+#
+# Metric model:
+#   cloudflare_requests_total{method,path,worker}
+#   cloudflare_request_errors_total{method,path,worker}
+#   cloudflare_request_duration_ms{method,path,quantile,worker}
+#
+# All input series tagged with worker="gateway" from scrape relabel.
+
+rule_files:
+  - /prometheus/rules/worker-slo.yml
+
+evaluation_interval: 15s
+
+tests:
+  # =========================================================================
+  # Test 1: Healthy traffic — no errors, no alerts
+  # =========================================================================
+  - name: "Healthy traffic"
+    input_series:
+      - series: 'cloudflare_requests_total{method="GET",path="/health",worker="gateway"}'
+        values: '1000+1500x1920'
+      - series: 'cloudflare_request_errors_total{method="GET",path="/health",worker="gateway"}'
+        values: '0+0x1920'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: WorkerSLOFastBurn
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: WorkerSLOSlowBurn
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: WorkerHighLatencyP99
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: WorkerMetricsAbsent
+        exp_alerts: []
+    promql_expr_test:
+      # rate[5m] = (increase of 1500*20 in 300s) / 300 ≈ 100
+      # Prometheus rate() has float precision: 99.99999999999999
+      - expr: 'job:cloudflare_requests:rate5m'
+        eval_time: 30m
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests:rate5m", worker="gateway"}'
+            value: 99.99999999999999
+      # error_rate[5m] = 0 (no errors)
+      - expr: 'job:cloudflare_requests_errors:rate5m'
+        eval_time: 30m
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests_errors:rate5m", worker="gateway"}'
+            value: 0
+      # error_ratio = 0 / (100 + 0) = 0
+      - expr: 'job:cloudflare_requests:error_ratio_5m'
+        eval_time: 30m
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests:error_ratio_5m", worker="gateway"}'
+            value: 0
+
+  # =========================================================================
+  # Test 2: 20% errors sustained for 8h+ — both burn-rate alerts fire
+  # =========================================================================
+  - name: "20% errors sustained"
+    input_series:
+      - series: 'cloudflare_requests_total{method="GET",path="/health",worker="gateway"}'
+        values: '1000+1500x1920'
+      - series: 'cloudflare_request_errors_total{method="GET",path="/health",worker="gateway"}'
+        values: '0+300x1920'
+    alert_rule_test:
+      # Fast-burn: ratio=0.20 > 0.144 on both 5m+1h windows, for=2m satisfied
+      - eval_time: 8h
+        alertname: WorkerSLOFastBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: observability
+              slo: availability-99
+              worker: gateway
+            exp_annotations:
+              summary: "Worker gateway SLO fast burn — error ratio 20%"
+              description: "Error ratio on worker gateway is 20% over 5m AND over 1h — error budget burning 14.4× faster than target. SLO: 99% availability.\n"
+      # Slow-burn: ratio=0.20 > 0.06 on both 30m+6h windows, for=1h satisfied
+      - eval_time: 8h
+        alertname: WorkerSLOSlowBurn
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: observability
+              slo: availability-99
+              worker: gateway
+            exp_annotations:
+              summary: "Worker gateway SLO slow burn — error ratio 20%"
+              description: "Error ratio on worker gateway is 20% over 30m AND over 6h — error budget burning 6× faster than target. SLO: 99% availability. Investigate during business hours.\n"
+    promql_expr_test:
+      # error_ratio_5m = 20 / (100 + 0) ≈ 0.20 (float: 0.19999999999999998)
+      - expr: 'job:cloudflare_requests:error_ratio_5m'
+        eval_time: 8h
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests:error_ratio_5m", worker="gateway"}'
+            value: 0.19999999999999998
+      # error_ratio_30m = 20 / (100 + 0) = 0.20
+      - expr: 'job:cloudflare_requests:error_ratio_30m'
+        eval_time: 8h
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests:error_ratio_30m", worker="gateway"}'
+            value: 0.20
+
+  # =========================================================================
+  # Test 3: Errors for only 5m — proves AND logic (5m window alone does NOT
+  # fire fast-burn because 1h window is not > 0.144).
+  # =========================================================================
+  - name: "AND logic — 5m error spike alone does not fire fast-burn"
+    input_series:
+      - series: 'cloudflare_requests_total{method="GET",path="/health",worker="gateway"}'
+        values: '1000+1500x480'
+      # 100 steps (25min) of 0 errors, then 20 steps (5min) of 20% errors
+      - series: 'cloudflare_request_errors_total{method="GET",path="/health",worker="gateway"}'
+        values: '0+0x100 0+300x20'
+    alert_rule_test:
+      # Fast-burn: 5m window = 0.20 > 0.144 ✓ but 1h window ≈ 0.017 < 0.144 ✗ → does NOT fire
+      - eval_time: 30m
+        alertname: WorkerSLOFastBurn
+        exp_alerts: []
+    promql_expr_test:
+      # 5m window is hot (≈ 19% errors → 0.19 > 0.144)
+      # Prometheus comparison returns the metric value, not 1
+      - expr: 'job:cloudflare_requests:error_ratio_5m{worker="gateway"} > 0.144'
+        eval_time: 30m
+        exp_samples:
+          - labels: '{__name__="job:cloudflare_requests:error_ratio_5m", worker="gateway"}'
+            value: 0.19000000000000003
+      # 1h window is cold (only 5min of errors in 1h window → ratio ≈ 0.017)
+      - expr: 'job:cloudflare_requests:error_ratio_1h{worker="gateway"} > 0.144'
+        eval_time: 30m
+        exp_samples: []
+
+  # =========================================================================
+  # Test 4: High p99 latency triggers WorkerHighLatencyP99
+  # =========================================================================
+  - name: "High p99 latency"
+    input_series:
+      - series: 'cloudflare_request_duration_ms{method="GET",path="/health",worker="gateway",quantile="0.99"}'
+        values: '800+0x240'
+      # Also provide request metrics so absent/fast-burn/slow-burn don't fire
+      - series: 'cloudflare_requests_total{method="GET",path="/health",worker="gateway"}'
+        values: '1000+1500x240'
+      - series: 'cloudflare_request_errors_total{method="GET",path="/health",worker="gateway"}'
+        values: '0+0x240'
+    alert_rule_test:
+      # Latency = 800ms > 500ms, for=10m satisfied at t=15m
+      - eval_time: 15m
+        alertname: WorkerHighLatencyP99
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: observability
+              method: GET
+              path: /health
+              worker: gateway
+              quantile: "0.99"
+            exp_annotations:
+              summary: "Worker gateway p99 latency 800ms on /health"
+              description: "p99 latency for GET /health on worker gateway is 800ms (threshold: 500ms). NOTE: Summary quantiles are process-lifetime estimates, not windowed — investigate if sustained.\n"
+
+  # =========================================================================
+  # Test 5: No metrics — absent alert fires
+  # =========================================================================
+  - name: "No worker metrics"
+    input_series: []
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: WorkerMetricsAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: observability
+            exp_annotations:
+              summary: "No worker metrics received for 5m"
+              description: "cloudflare_requests_total is absent. All workers may be unreachable or Prometheus scrape configuration is broken.\n"

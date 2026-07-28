@@ -11,8 +11,8 @@
 use std::sync::Mutex;
 
 use serde::Serialize;
-use worker::Date;
 
+use super::now_string;
 use crate::observability::trace_context::TraceContext;
 
 /// Log severity levels matching standard logging conventions.
@@ -54,7 +54,7 @@ impl LogEvent {
     /// Create a new log event with the current timestamp.
     pub fn new(level: LogLevel, message: &str, service: &str) -> Self {
         Self {
-            timestamp: Date::now().to_string(),
+            timestamp: now_string(),
             level,
             message: message.to_string(),
             service: service.to_string(),

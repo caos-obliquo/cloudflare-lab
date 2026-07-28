@@ -1,14 +1,23 @@
 //! Analytics Worker — D1 event tracking, Bearer auth.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use cloudflare_shared::{
-    observability::{structured_log::Logger, trace_context::TraceContext},
+    bootstrap::ensure_analytics_events_table,
+    observability::{
+        health::{DependencyHealth, HealthStatus},
+        structured_log::Logger,
+        trace_context::TraceContext,
+    },
     response::json_error_response,
     session::validate_token,
     tracing::request_id_for_request,
 };
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
-use worker::{web_sys, *};
+use worker::*;
+
+static DB_BOOTSTRAPPED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Deserialize)]
 struct TrackRequest {
@@ -43,15 +52,25 @@ async fn verify_token(req: &Request, env: &Env) -> Result<Option<String>> {
     Ok(kv.get(raw).text().await?)
 }
 
-async fn require_auth(req: &Request, env: &Env) -> Result<String> {
-    match verify_token(req, env).await? {
-        Some(username) => Ok(username),
-        None => {
-            let resp = json_error_response(401, "Unauthorized", "").unwrap();
-            let web_resp: web_sys::Response = resp.into();
-            Err(Error::from(JsValue::from(web_resp)))
+async fn require_auth(req: &Request, env: &Env) -> Result<Option<String>> {
+    verify_token(req, env).await
+}
+
+fn check_bindings(env: &Env) -> Vec<DependencyHealth> {
+    let mut r = Vec::new();
+    let mut add = |name: &str, res: Result<(), String>| {
+        let s = Date::now().as_millis() as f64;
+        match res {
+            Ok(()) => r.push(DependencyHealth::healthy(
+                name,
+                (Date::now().as_millis() as f64 - s) as u64,
+            )),
+            Err(e) => r.push(DependencyHealth::unhealthy(name, &e)),
         }
-    }
+    };
+    add("d1", env.d1("D1").map(|_| ()).map_err(|e| format!("{:?}", e)));
+    add("kv", env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)));
+    r
 }
 
 #[event(fetch)]
@@ -66,6 +85,13 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let start = Date::now().as_millis();
     logger.request(&method, path, &ctx).emit();
 
+    if !DB_BOOTSTRAPPED.load(Ordering::Relaxed) {
+        if let Ok(db) = env.d1("D1") {
+            ensure_analytics_events_table(&db).await?;
+            DB_BOOTSTRAPPED.store(true, Ordering::Relaxed);
+        }
+    }
+
     // Capture origin before req is moved into handlers.
     let req_origin = req.headers().get("Origin")?.unwrap_or_default();
 
@@ -77,6 +103,22 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         ("POST", "/track") => track(req, &env).await,
         ("GET", "/events") => events(req, &env).await,
         ("GET", "/summary") => summary(req, &env).await,
+        ("GET", "/health") | ("GET", "/readyz") => {
+            let results = check_bindings(&env);
+            let all_ok = results.iter().all(|d| d.status == HealthStatus::Healthy);
+            let overall = if all_ok {
+                "healthy"
+            } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) {
+                "unhealthy"
+            } else {
+                "degraded"
+            };
+            json_response(
+                if all_ok { 200 } else { 503 },
+                &serde_json::json!({"status":overall,"checks":results}),
+            )
+        }
+        ("GET", "/livez") => json_response(200, &serde_json::json!({"status":"alive"})),
         _ => json_error_response(404, "Not found", ""),
     }?;
 
@@ -88,8 +130,10 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }
     resp.headers()
         .set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
-    resp.headers()
-        .set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
+    resp.headers().set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, traceparent, x-request-id",
+    )?;
 
     let duration_ms = Date::now().as_millis() - start;
     let status = resp.status_code();
@@ -100,7 +144,9 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 }
 
 async fn track(mut req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, env).await?;
+    if require_auth(&req, env).await?.is_none() {
+        return json_error_response(401, "Unauthorized", "");
+    }
     let body: TrackRequest = req.json().await?;
     let db = env.d1("D1")?;
     let data = body.event_data.unwrap_or_default();
@@ -115,7 +161,9 @@ async fn track(mut req: Request, env: &Env) -> Result<Response> {
 }
 
 async fn events(req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, env).await?;
+    if require_auth(&req, env).await?.is_none() {
+        return json_error_response(401, "Unauthorized", "");
+    }
     let db = env.d1("D1")?;
     let query: std::collections::HashMap<String, String> = req
         .url()?
@@ -154,7 +202,9 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
 }
 
 async fn summary(req: Request, env: &Env) -> Result<Response> {
-    let _user = require_auth(&req, env).await?;
+    if require_auth(&req, env).await?.is_none() {
+        return json_error_response(401, "Unauthorized", "");
+    }
     let db = env.d1("D1")?;
     let total = db
         .prepare("SELECT COUNT(*) as count FROM analytics_events")

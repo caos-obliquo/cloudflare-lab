@@ -1,8 +1,13 @@
+# deploy.yml — Deploy pipeline
+# lint/security call reusable templates; build kept inline (wasm release build
+# in ci-rust.yml would be redundant with worker-build --release in deploy jobs).
 name: Deploy
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -13,30 +18,14 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
+    uses: ./.github/workflows/ci-rust.yml
 
   security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install cargo-audit
-      - run: cargo audit
-      - run: npm audit --omit=dev || true
-        continue-on-error: true
+    uses: ./.github/workflows/ci-security.yml
 
+  # build kept inline — ci-rust.yml's wasm-build runs cargo build --release
+  # which is redundant with worker-build --release in each deploy job below.
+  # cargo check here provides quick compilation gate without the release delay.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -68,7 +57,7 @@ jobs:
           command: deploy
 
   deploy-gateway:
-    needs: build
+    needs: [build, deploy-auth]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +77,7 @@ jobs:
           command: deploy
 
   deploy-analytics:
-    needs: build
+    needs: [build, deploy-gateway]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

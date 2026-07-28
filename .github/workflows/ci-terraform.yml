@@ -1,0 +1,29 @@
+# ci-terraform.yml — reusable Terraform CI workflow
+# Job: validate with matrix over [root, aws]
+name: CI Terraform
+
+on:
+  workflow_call:
+
+jobs:
+  validate:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dir: .
+            label: tf-root
+          - dir: aws
+            label: tf-aws
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9
+      - run: terraform fmt -check -diff
+      - run: terraform init -backend=false
+      - run: terraform validate

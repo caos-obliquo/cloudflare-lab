@@ -14,7 +14,8 @@
 use std::sync::Mutex;
 
 use serde::Serialize;
-use worker::Date;
+
+use super::now_string;
 
 /// Health status for a dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -41,7 +42,7 @@ impl DependencyHealth {
             name: name.to_string(),
             status: HealthStatus::Healthy,
             latency_ms,
-            last_checked: Date::now().to_string(),
+            last_checked: now_string(),
             error: None,
         }
     }
@@ -51,7 +52,7 @@ impl DependencyHealth {
             name: name.to_string(),
             status: HealthStatus::Degraded,
             latency_ms,
-            last_checked: Date::now().to_string(),
+            last_checked: now_string(),
             error: Some(error.to_string()),
         }
     }
@@ -61,7 +62,7 @@ impl DependencyHealth {
             name: name.to_string(),
             status: HealthStatus::Unhealthy,
             latency_ms: 0,
-            last_checked: Date::now().to_string(),
+            last_checked: now_string(),
             error: Some(error.to_string()),
         }
     }

@@ -68,6 +68,7 @@ services:
       - --web.console.templates=/usr/share/prometheus/consoles
     volumes:
       - prometheus_data:/prometheus
+      - ./prometheus/rules:/etc/prometheus/rules:ro
     configs:
       - source: prometheus_config
         target: /etc/prometheus/prometheus.yml

@@ -18,6 +18,10 @@ override.tf.json
 *.wasm
 worker-build-cache/
 
+# Local dev
+.dev.vars
+**/.dev.vars
+
 # Rust
 target/
 
