@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # zricethezav/gitleaks-action@v2.3.9 — pinned: ff98106e4c7b2bc287b24eaf42907196329070c7
-      - uses: zricethezav/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+      # gitleaks/gitleaks-action (maintained fork, Node 24 compatible)
+      - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
