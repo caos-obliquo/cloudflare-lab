@@ -91,8 +91,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y jq
       - run: cargo install worker-build
       - uses: Swatinem/rust-cache@v2
-      # NOTE: tests/integration/run-all.sh boots wrangler dev via npx.
-      # If wrangler local-mode flakiness appears, pin wrangler version
-      # by installing a specific version (e.g., npm install -g wrangler@4.111.0)
-      # before running the test script.
+      # Build workers before running wrangler dev (wrangler dev in CI is slow to
+      # build on first request — pre-build to avoid health-check timeout)
+      - run: |
+          cd workers/gateway   && worker-build --release 2>&1 | tail -3
+          cd ../auth           && worker-build --release 2>&1 | tail -3
+          cd ../analytics      && worker-build --release 2>&1 | tail -3
       - run: bash tests/integration/run-all.sh --only gateway,auth,analytics
