@@ -40,11 +40,11 @@ Branch protection on `main` requires exact job name match:
 | `rust-deep` | informational | calls ci-rust.yml |
 | `security-deep` | informational | calls ci-security.yml |
 | `tf-modules` | informational | calls ci-terraform.yml |
-| `integration` | informational | requires tests/integration/run-all.sh |
+| `integration` | REQUIRED | inline — boots wrangler dev, runs gateway+auth+analytics suites |
 
 ⚠️ **Branch-protection coupling**: When a job calls a reusable workflow (`uses:`),
 the check name becomes `parent-job / child-job` (e.g. `rust-deep / fmt`).
-This breaks exact-name required checks. The 4 required jobs stay inline to
+This breaks exact-name required checks. The 5 required jobs stay inline to
 preserve the branch-protection names.
 
 ## How to Add a New Reusable Template

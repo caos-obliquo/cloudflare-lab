@@ -1,4 +1,4 @@
-.PHONY: build-gateway build-auth build-analytics build-rate-limiter build-all deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter deploy-all prom-test validate-dashboards load-test
+.PHONY: build-gateway build-auth build-analytics build-rate-limiter build-all deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter deploy-all test test-integration test-all test-api prom-test validate-dashboards load-test
 
 # Build individual workers
 build-gateway:
@@ -33,6 +33,25 @@ deploy-rate-limiter:
 # Deploy all workers
 deploy-all: build-all
 	@$(MAKE) deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter
+
+# ─── Test targets ──────────────────────────────────────────
+
+# Rust unit tests
+test:
+	cargo test --workspace
+
+# Integration tests (boots wrangler dev servers, needs npx+jq+curl)
+test-integration:
+	bash tests/integration/run-all.sh
+
+# All tests: unit + integration + SLO
+test-all: test test-integration prom-test
+
+# CLI debug tool: hit worker APIs with canned payloads
+# Usage: make test-api ARGS="auth health"
+#        make test-api ARGS="auth register --user test --pass TestPass123!"
+test-api:
+	bash scripts/test-api.sh $(ARGS)
 
 # Prometheus SLO rule validation
 # Support PODMAN=1 for podman users

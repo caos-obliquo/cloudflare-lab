@@ -1,6 +1,6 @@
 # pr.yml — PR orchestrator
-# REQUIRED checks (branch-protection exact-name match): lint, security, build, tf-lint
-# EXTRA (informational, not required): rust-deep, security-deep, tf-modules, integration
+# REQUIRED checks (branch-protection exact-name match): lint, security, build, tf-lint, integration
+# EXTRA (informational, not required): rust-deep, security-deep, tf-modules
 name: PR Check
 
 on:
@@ -62,7 +62,9 @@ jobs:
       - run: terraform init -backend=false
       - run: terraform validate
 
-  # ─── EXTRA INFORMATIONAL CHECKS (not required for merge) ───────────────
+  # ─── INTEGRATION (required) ──────────────────────────────
+  # Runs integration tests: boots wrangler dev, runs gateway/auth/analytics suites.
+  # Must pass before merge.
   rust-deep:
     uses: ./.github/workflows/ci-rust.yml
 
