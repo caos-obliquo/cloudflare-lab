@@ -57,6 +57,8 @@ WORKER_ANALYTICS="$REPO_ROOT/workers/analytics"
 # Wrangler dev flags
 WDRY_FLAGS=""
 [ -n "${PERSIST:-}" ] && WDRY_FLAGS="$WDRY_FLAGS --persist"
+# In CI, skip binding validation (no D1/KV/DO available)
+[ "${SKIP_NO_BINDINGS:-0}" = "1" ] && WDRY_FLAGS="$WDRY_FLAGS --no-bindings"
 
 # --- Parse --only ---
 RUN_ALL_SUITES=1

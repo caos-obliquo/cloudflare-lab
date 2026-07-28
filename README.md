@@ -168,6 +168,41 @@ make prom-test            # validate SLO rules
 cd workers/auth && wrangler dev --port 8788  # local auth worker
 ```
 
+## Disaster Recovery
+
+### D1 Database Backup
+
+D1 has no built-in export. Back up via wrangler:
+
+```bash
+# Manual backup
+wrangler d1 dump test-d1-database --remote > backups/d1-$(date +%Y%m%d).sql
+
+# Auto-backup (cron, deploy trigger, or GitHub Action)
+# Recommended: schedule via GitHub Actions weekly
+```
+
+Backup strategy:
+- **Frequency**: weekly full dump, daily via `--no-data` (schema-only for drift detection)
+- **Retention**: 30 days local, 90 days S3/GitHub artifacts
+- **Restore**: `cat backup.sql | wrangler d1 execute test-d1-database --remote --file=-`
+
+### Cross-Region Lambda Failover
+
+Lambda deployment is single-region in this setup. For DR:
+
+1. **Secondary region stack**: duplicate `aws/` Terraform in `us-east-2` (or preferred failover region)
+2. **Route53 failover**: DNS failover with health checks on Lambda Function URL
+3. **Worker circuit breaker**: gateway worker detects primary Lambda failure (5xx, timeout) → retry secondary URL
+4. **Data replication**: D1 is single-region; for DR, use D1 replication (GA) or periodic export to S3
+
+### Worker Multi-Region
+
+Workers are Cloudflare-global by default (no region concept). Key DR properties:
+- **Stateless**: auth tokens are HMAC-signed (no session store dependency for validation)
+- **D1 single-region**: D1 queries fail if primary region is down. Mitigation: D1 replication when available, or fallback to read-only KV cache
+- **Queue retry**: failed queue messages retry automatically (configurable `max_retries`)
+
 ## Known Issues
 
 ### Terraform v5
