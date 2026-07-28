@@ -40,7 +40,7 @@ impl Router {
                 headers.set("Access-Control-Allow-Origin", &req_origin)?;
             }
             headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
-            headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
+            headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, traceparent, x-request-id")?;
             let mut resp = Response::empty()?.with_status(204).with_headers(headers);
             resp.headers().set("X-Request-Id", &req_id)?;
             ctx.inject_into_response(&mut resp)?;
@@ -160,7 +160,7 @@ impl Router {
         resp.headers()
             .set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")?;
         resp.headers()
-            .set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
+            .set("Access-Control-Allow-Headers", "Content-Type, Authorization, traceparent, x-request-id")?;
 
         let duration_ms = Date::now().as_millis() - start_ms;
         let status = resp.status_code();

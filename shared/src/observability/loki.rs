@@ -16,7 +16,7 @@ use std::{
 
 use serde::Serialize;
 use wasm_bindgen::JsCast;
-use worker::Date;
+use super::now_millis;
 
 use crate::observability::structured_log::{LogEvent, LogLevel};
 
@@ -134,7 +134,7 @@ fn build_loki_payload(events: &[LogEvent]) -> LokiPayload {
         };
 
         // Nanosecond timestamp from worker Date (ms precision × 1_000_000).
-        let ts_ns = Date::now().as_millis() * 1_000_000;
+        let ts_ns = now_millis() * 1_000_000;
         let ts_str = ts_ns.to_string();
 
         // Serialize the full LogEvent as the log line value.

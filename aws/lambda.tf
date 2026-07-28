@@ -14,6 +14,10 @@ resource "aws_lambda_function" "devops_api" {
   runtime          = "provided.al2023"
   timeout          = 30
   memory_size      = 128
+  tracing_config {
+    mode = "Active"
+  }
+  layers = ["arn:aws:lambda:${var.aws_region}:901920570463:layer:aws-otel-collector-amd64-ver-0-120-0:1"]
 
   environment {
     variables = {

@@ -1,15 +1,23 @@
 //! Auth Worker — register/login/verify/me, HMAC tokens, pbkdf2, DO rate limiting.
 
+use cloudflare_shared::crypto::{hash_password, verify_legacy_sha256, verify_password};
 use cloudflare_shared::{
-    crypto::{hash_password, verify_legacy_sha256, verify_password},
-    observability::{structured_log::Logger, trace_context::TraceContext},
+    bootstrap::ensure_users_table,
+    observability::{
+        health::{DependencyHealth, HealthStatus},
+        structured_log::Logger,
+        trace_context::TraceContext,
+    },
     response::json_error_response,
     session::{create_token, parse_token},
     tracing::request_id_for_request,
 };
 use serde::Deserialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::JsValue;
 use worker::*;
+
+static DB_BOOTSTRAPPED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Deserialize)]
 struct RegisterRequest {
@@ -92,6 +100,13 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let start = Date::now().as_millis();
     logger.request(&method, path, &ctx).emit();
 
+    if !DB_BOOTSTRAPPED.load(Ordering::Relaxed) {
+        if let Ok(db) = env.d1("D1") {
+            ensure_users_table(&db).await?;
+            DB_BOOTSTRAPPED.store(true, Ordering::Relaxed);
+        }
+    }
+
     let mut resp = match (method.as_str(), path) {
         ("GET", "/") => json_response(
             200,
@@ -101,16 +116,30 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 "routes": ["/register", "/login", "/verify", "/me"]
             }),
         ),
-        ("POST", "/register") => match check_rate_limit(&req, &env, "register", 5).await? {
-            Some(r) => Ok(r),
-            None => register(req, &env).await,
-        },
-        ("POST", "/login") => match check_rate_limit(&req, &env, "login", 10).await? {
-            Some(r) => Ok(r),
-            None => login(req, &env).await,
-        },
+        ("POST", "/register") => register(req, &env).await,
+        ("POST", "/login") => login(req, &env).await,
         ("GET", "/verify") => verify(req, &env).await,
         ("GET", "/me") => me(req, &env).await,
+        ("GET", "/health") | ("GET", "/readyz") => {
+            let results = check_bindings(&env);
+            let all_ok = results.iter().all(|d| d.status == HealthStatus::Healthy);
+            let overall = if all_ok {
+                "healthy"
+            } else if results.iter().any(|d| d.status == HealthStatus::Unhealthy) {
+                "unhealthy"
+            } else {
+                "degraded"
+            };
+            json_response(
+                if all_ok { 200 } else { 503 },
+                &serde_json::json!({"status":overall,"checks":results}),
+            )
+        }
+        ("GET", "/livez") => json_response(200, &serde_json::json!({"status":"alive"})),
+        ("GET", "/debug/d1") => debug_d1(&env).await,
+        ("POST", "/debug/hash") => debug_hash(&env).await,
+        ("POST", "/debug/insert") => debug_insert(&env).await,
+        ("POST", "/debug/register") => debug_register(&env).await,
         _ => json_error_response(404, "Not found", ""),
     }?;
     let duration_ms = Date::now().as_millis() - start;
@@ -121,7 +150,34 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Ok(resp)
 }
 
+fn check_bindings(env: &Env) -> Vec<DependencyHealth> {
+    let mut r = Vec::new();
+    let mut add = |name: &str, res: Result<(), String>| {
+        let s = Date::now().as_millis() as f64;
+        match res {
+            Ok(()) => r.push(DependencyHealth::healthy(
+                name,
+                (Date::now().as_millis() as f64 - s) as u64,
+            )),
+            Err(e) => r.push(DependencyHealth::unhealthy(name, &e)),
+        }
+    };
+    add("d1", env.d1("D1").map(|_| ()).map_err(|e| format!("{:?}", e)));
+    add(
+        "kv",
+        env.kv("SESSIONS").map(|_| ()).map_err(|e| format!("{:?}", e)),
+    );
+    add(
+        "rate_limiter",
+        env.durable_object("RATE_LIMITER")
+            .map(|_| ())
+            .map_err(|e| format!("{:?}", e)),
+    );
+    r
+}
+
 async fn register(mut req: Request, env: &Env) -> Result<Response> {
+    console_log!("[register] called");
     let body: RegisterRequest = req.json().await?;
     if validate_username(&body.username).is_err() {
         return json_error_response(400, "Invalid username: must be 3-32 alphanumeric characters", "");
@@ -133,9 +189,9 @@ async fn register(mut req: Request, env: &Env) -> Result<Response> {
     let existing = db
         .prepare("SELECT id FROM users WHERE username = ?1")
         .bind(&[JsValue::from(&body.username)])?
-        .first::<i64>(Some("id"))
+        .all()
         .await?;
-    if existing.is_some() {
+    if existing.results::<serde_json::Value>()?.len() > 0 {
         return json_error_response(409, "Username already exists", "");
     }
     let hashed = hash_password(&body.password);
@@ -163,11 +219,13 @@ async fn login(mut req: Request, env: &Env) -> Result<Response> {
 
     let db = env.d1("D1")?;
     let secret = session_secret(env)?;
-    let stored_hash = db
+    let db_result = db
         .prepare("SELECT password FROM users WHERE username = ?1")
         .bind(&[JsValue::from(&body.username)])?
-        .first::<String>(Some("password"))
+        .all()
         .await?;
+    let rows = db_result.results::<serde_json::Value>();
+    let stored_hash = rows?.first().and_then(|r| r.get("password").and_then(|v| v.as_str().map(String::from)));
 
     match stored_hash {
         // pbkdf2 match -> sign HMAC token, return to client.
@@ -261,6 +319,91 @@ async fn me(req: Request, env: &Env) -> Result<Response> {
             ),
             None => json_error_response(401, "Invalid or expired token", ""),
         }
+    }
+}
+
+// Debug: test D1 step-by-step, return full error details
+async fn debug_d1(env: &Env) -> Result<Response> {
+    let db = match env.d1("D1") {
+        Ok(d) => d,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"d1_binding","error":format!("{}",e)})),
+    };
+    let stmt = db.prepare("SELECT 1 as x");
+    let bound = match stmt.bind(&[]) {
+        Ok(b) => b,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"bind","error":format!("{}",e)})),
+    };
+    let d1_result = match bound.all().await {
+        Ok(r) => r,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"all","error":format!("{}",e)})),
+    };
+    let rows = match d1_result.results::<serde_json::Value>() {
+        Ok(r) => r,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"results","error":format!("{}",e),"success":d1_result.success()})),
+    };
+    json_response(200, &serde_json::json!({"step":"done","rows":rows,"count":rows.len()}))
+}
+
+// Debug: register step-by-step, return full error details at each step
+async fn debug_register(env: &Env) -> Result<Response> {
+    let db = match env.d1("D1") {
+        Ok(d) => d,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"d1_binding","error":format!("{}",e)})),
+    };
+    let existing = match db
+        .prepare("SELECT id FROM users WHERE username = ?1")
+        .bind(&[JsValue::from("debug_test_user")])
+    {
+        Ok(stmt) => match stmt.all().await {
+            Ok(r) => r,
+            Err(e) => return json_response(200, &serde_json::json!({"step":"select_all","error":format!("{}",e)})),
+        },
+        Err(e) => return json_response(200, &serde_json::json!({"step":"bind","error":format!("{}",e)})),
+    };
+    let rows = match existing.results::<serde_json::Value>() {
+        Ok(r) => r,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"results_deser","error":format!("{}",e),"success":existing.success()})),
+    };
+    json_response(200, &serde_json::json!({"step":"select_ok","rows":rows,"count":rows.len()}))
+}
+
+// Debug: test hash_password in WASM
+async fn debug_hash(env: &Env) -> Result<Response> {
+    let pwd = "TestPass123!";
+    let hashed = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        hash_password(pwd)
+    })) {
+        Ok(h) => h,
+        Err(e) => {
+            let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                s.to_string()
+            } else if let Some(s) = e.downcast_ref::<String>() {
+                s.clone()
+            } else {
+                "unknown panic".to_string()
+            };
+            return json_response(200, &serde_json::json!({"step":"hash_panic","error":msg}));
+        }
+    };
+    json_response(200, &serde_json::json!({"step":"hash_ok","hash":hashed}))
+}
+
+// Debug: test D1 INSERT
+async fn debug_insert(env: &Env) -> Result<Response> {
+    let db = match env.d1("D1") {
+        Ok(d) => d,
+        Err(e) => return json_response(200, &serde_json::json!({"step":"d1_binding","error":format!("{}",e)})),
+    };
+    let hashed = hash_password("TestPass123!");
+    match db
+        .prepare("INSERT INTO users (username, password) VALUES (?1, ?2)")
+        .bind(&[JsValue::from("debug_insert_user"), JsValue::from(&hashed)])
+    {
+        Ok(stmt) => match stmt.run().await {
+            Ok(_) => json_response(200, &serde_json::json!({"step":"insert_ok"})),
+            Err(e) => json_response(200, &serde_json::json!({"step":"insert_err","error":format!("{}",e)})),
+        },
+        Err(e) => json_response(200, &serde_json::json!({"step":"bind_err","error":format!("{}",e)})),
     }
 }
 

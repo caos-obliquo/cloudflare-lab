@@ -125,9 +125,24 @@ impl Histogram {
             let p90 = percentile(&sorted, 90.0);
             let p99 = percentile(&sorted, 99.0);
 
-            out.push_str(&format!("{}{{quantile=\"0.5\"}} {}\n", self.name, p50));
-            out.push_str(&format!("{}{{quantile=\"0.9\"}} {}\n", self.name, p90));
-            out.push_str(&format!("{}{{quantile=\"0.99\"}} {}\n", self.name, p99));
+            if labels_str.is_empty() {
+                out.push_str(&format!("{}{{quantile=\"0.5\"}} {}\n", self.name, p50));
+                out.push_str(&format!("{}{{quantile=\"0.9\"}} {}\n", self.name, p90));
+                out.push_str(&format!("{}{{quantile=\"0.99\"}} {}\n", self.name, p99));
+            } else {
+                out.push_str(&format!(
+                    "{}{{{},quantile=\"0.5\"}} {}\n",
+                    self.name, labels_str, p50
+                ));
+                out.push_str(&format!(
+                    "{}{{{},quantile=\"0.9\"}} {}\n",
+                    self.name, labels_str, p90
+                ));
+                out.push_str(&format!(
+                    "{}{{{},quantile=\"0.99\"}} {}\n",
+                    self.name, labels_str, p99
+                ));
+            }
         }
 
         out
@@ -172,7 +187,7 @@ impl EndpointMetrics {
 
     /// Record a completed request. Returns duration in ms for logging.
     pub fn record(&self, status: u16, start_ms: f64) -> f64 {
-        let now_ms = worker::Date::now().as_millis() as f64;
+        let now_ms = super::now_millis() as f64;
         let duration_ms = now_ms - start_ms;
         self.requests.inc();
         self.latency.observe(duration_ms);

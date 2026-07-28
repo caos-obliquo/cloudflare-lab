@@ -1,0 +1,77 @@
+# ci-security.yml — reusable security scan workflow
+# All third-party actions pinned to commit SHA.
+# Jobs: cargo-audit, secrets (gitleaks), trivy (fs + sarif)
+name: CI Security
+
+on:
+  workflow_call:
+    inputs:
+      upload_artifacts:
+        description: Upload audit and SARIF artifacts
+        type: boolean
+        default: false
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rustsec/audit-check@v2 — pinned: 69366f33c96575abad1ee0dba8212993eecbe998
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # zricethezav/gitleaks-action@v2.3.9 — pinned: ff98106e4c7b2bc287b24eaf42907196329070c7
+      - uses: zricethezav/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # aquasecurity/trivy-action@v0.36.0 — pinned: a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+      - name: Run Trivy (table)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      # Separate SARIF generation — continue-on-error because trivy caches results;
+      # if table scan passed, sarif gen is just format conversion.
+      - name: Generate SARIF
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+
+      # github/codeql-action/upload-sarif@v3.37.3 — pinned: 4187e74d05793876e9989daffde9c3e66b4acd07
+      # continue-on-error: true — private repos without GH Advanced Security
+      # reject SARIF upload with 403. This is safe: the trivy table step above
+      # enforces the actual pass/fail; SARIF upload is informational.
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07
+        continue-on-error: true
+        with:
+          sarif_file: trivy-results.sarif
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm audit --omit=dev || true
+        continue-on-error: true

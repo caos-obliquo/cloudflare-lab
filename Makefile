@@ -1,4 +1,4 @@
-.PHONY: build-gateway build-auth build-analytics build-rate-limiter build-all deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter deploy-all
+.PHONY: build-gateway build-auth build-analytics build-rate-limiter build-all deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter deploy-all prom-test validate-dashboards load-test
 
 # Build individual workers
 build-gateway:
@@ -33,3 +33,18 @@ deploy-rate-limiter:
 # Deploy all workers
 deploy-all: build-all
 	@$(MAKE) deploy-gateway deploy-auth deploy-analytics deploy-rate-limiter
+
+# Prometheus SLO rule validation
+# Support PODMAN=1 for podman users
+PROMTOOL_RUNNER = $(if $(PODMAN),podman,docker)
+
+prom-test:
+	$(PROMTOOL_RUNNER) run --rm -v $(PWD)/prometheus:/prometheus:ro --entrypoint promtool prom/prometheus:latest test rules /prometheus/rules/tests/worker-slo.test.yml
+
+# Validate Grafana dashboards against datasource references
+validate-dashboards:
+	bash scripts/validate-dashboards.sh
+
+# k6 load test against gateway worker
+load-test:
+	k6 run k6/load.js

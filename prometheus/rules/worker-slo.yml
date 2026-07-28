@@ -1,0 +1,169 @@
+# SLO rules for Cloudflare Workers.
+#
+# SLO: 99% availability (1% error budget over 30d rolling).
+# Metric model:
+#   cloudflare_requests_total{method,path} — counter (aggregated by worker label via scrape relabel)
+#   cloudflare_request_errors_total{method,path} — counter (status >= 400)
+#   cloudflare_request_duration_ms{method,path,quantile} — summary with _count/_sum
+#
+# IMPORTANT: latency uses summary quantiles directly, NOT histogram_quantile.
+# Summary quantiles are in-window estimates — they represent the quantile of
+# the entire process lifetime, not the last window.
+
+groups:
+  - name: worker-slo
+    interval: 15s
+    rules:
+      # ------------------------------------------------------------------
+      # Recording rules — request rates by worker
+      # ------------------------------------------------------------------
+
+      - record: job:cloudflare_requests:rate5m
+        expr: sum by(worker) (rate(cloudflare_requests_total[5m]))
+
+      - record: job:cloudflare_requests:rate1h
+        expr: sum by(worker) (rate(cloudflare_requests_total[1h]))
+
+      - record: job:cloudflare_requests:rate30m
+        expr: sum by(worker) (rate(cloudflare_requests_total[30m]))
+
+      - record: job:cloudflare_requests:rate6h
+        expr: sum by(worker) (rate(cloudflare_requests_total[6h]))
+
+      # ------------------------------------------------------------------
+      # Recording rules — error rates by worker
+      # ------------------------------------------------------------------
+
+      - record: job:cloudflare_requests_errors:rate5m
+        expr: sum by(worker) (rate(cloudflare_request_errors_total[5m]))
+
+      - record: job:cloudflare_requests_errors:rate1h
+        expr: sum by(worker) (rate(cloudflare_request_errors_total[1h]))
+
+      - record: job:cloudflare_requests_errors:rate30m
+        expr: sum by(worker) (rate(cloudflare_request_errors_total[30m]))
+
+      - record: job:cloudflare_requests_errors:rate6h
+        expr: sum by(worker) (rate(cloudflare_request_errors_total[6h]))
+
+      # ------------------------------------------------------------------
+      # Recording rules — error ratios with divide-by-zero guard
+      # When requests are 0 the ratio is NaN, which naturally suppresses alerts.
+      # ------------------------------------------------------------------
+
+      - record: job:cloudflare_requests:error_ratio_5m
+        expr: |
+          job:cloudflare_requests_errors:rate5m
+          /
+          (job:cloudflare_requests:rate5m + 0)
+
+      - record: job:cloudflare_requests:error_ratio_1h
+        expr: |
+          job:cloudflare_requests_errors:rate1h
+          /
+          (job:cloudflare_requests:rate1h + 0)
+
+      - record: job:cloudflare_requests:error_ratio_30m
+        expr: |
+          job:cloudflare_requests_errors:rate30m
+          /
+          (job:cloudflare_requests:rate30m + 0)
+
+      - record: job:cloudflare_requests:error_ratio_6h
+        expr: |
+          job:cloudflare_requests_errors:rate6h
+          /
+          (job:cloudflare_requests:rate6h + 0)
+
+      # ------------------------------------------------------------------
+      # Alert: Fast burn — SLO is burning error budget very fast.
+      # Multi-window, multi-burn-rate: requires BOTH short (5m) and long (1h)
+      # windows to exceed threshold. This prevents flapping from brief spikes.
+      #
+      # burn_rate = 14.4 → 1% error budget consumed in ~1 hour
+      # threshold = 14.4 * 0.01 = 0.144
+      # severity = critical (page)
+      # for = 2m (avoid noise from transient blips)
+      # ------------------------------------------------------------------
+
+      - alert: WorkerSLOFastBurn
+        expr: |
+          job:cloudflare_requests:error_ratio_5m > 0.144
+          and
+          job:cloudflare_requests:error_ratio_1h > 0.144
+        for: 2m
+        labels:
+          severity: critical
+          team: observability
+          slo: availability-99
+        annotations:
+          summary: "Worker {{ $labels.worker }} SLO fast burn — error ratio {{ $value | humanizePercentage }}"
+          description: >
+            Error ratio on worker {{ $labels.worker }} is {{ $value | humanizePercentage }}
+            over 5m AND over 1h — error budget burning 14.4× faster than target.
+            SLO: 99% availability.
+
+      # ------------------------------------------------------------------
+      # Alert: Slow burn — SLO is burning steadily.
+      # Requires BOTH 30m and 6h windows to exceed threshold.
+      #
+      # burn_rate = 6 → 1% error budget consumed in ~2.4 hours
+      # threshold = 6 * 0.01 = 0.06
+      # severity = warning (ticket)
+      # for = 1h (confirm sustained degradation before notifying)
+      # ------------------------------------------------------------------
+
+      - alert: WorkerSLOSlowBurn
+        expr: |
+          job:cloudflare_requests:error_ratio_30m > 0.06
+          and
+          job:cloudflare_requests:error_ratio_6h > 0.06
+        for: 1h
+        labels:
+          severity: warning
+          team: observability
+          slo: availability-99
+        annotations:
+          summary: "Worker {{ $labels.worker }} SLO slow burn — error ratio {{ $value | humanizePercentage }}"
+          description: >
+            Error ratio on worker {{ $labels.worker }} is {{ $value | humanizePercentage }}
+            over 30m AND over 6h — error budget burning 6× faster than target.
+            SLO: 99% availability. Investigate during business hours.
+
+      # ------------------------------------------------------------------
+      # Alert: High p99 latency
+      # Summary quantiles are in-window estimates — the p99 value represents
+      # the estimated 99th percentile over the process lifetime, not a rate.
+      # Use as a trend indicator, not an exact SLA measurement.
+      # ------------------------------------------------------------------
+
+      - alert: WorkerHighLatencyP99
+        expr: |
+          cloudflare_request_duration_ms{quantile="0.99"} > 500
+        for: 10m
+        labels:
+          severity: warning
+          team: observability
+        annotations:
+          summary: "Worker {{ $labels.worker }} p99 latency {{ $value | humanize }}ms on {{ $labels.path }}"
+          description: >
+            p99 latency for {{ $labels.method }} {{ $labels.path }} on worker
+            {{ $labels.worker }} is {{ $value | humanize }}ms (threshold: 500ms).
+            NOTE: Summary quantiles are process-lifetime estimates, not
+            windowed — investigate if sustained.
+
+      # ------------------------------------------------------------------
+      # Alert: Worker metrics absent — worker down or scrape broken
+      # ------------------------------------------------------------------
+
+      - alert: WorkerMetricsAbsent
+        expr: absent(cloudflare_requests_total) == 1
+        for: 5m
+        labels:
+          severity: critical
+          team: observability
+        annotations:
+          summary: "No worker metrics received for 5m"
+          description: >
+            cloudflare_requests_total is absent. All workers may be unreachable
+            or Prometheus scrape configuration is broken.

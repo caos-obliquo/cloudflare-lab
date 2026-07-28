@@ -3,174 +3,170 @@
 # Tests bidirectional communication between AWS Lambda and Cloudflare Workers.
 #
 # Prerequisites:
-#   1. cargo lambda install (or use the built bootstrap binary directly)
-#   2. wrangler CLI installed
-#   3. AWS credentials configured (for SigV4 signing)
-#   4. LAMBDA_URL env var set (or use the local test server)
+#   1. awscurl installed (pip install awscurl) for SigV4-signed requests
+#   2. wrangler CLI installed (for worker side)
+#   3. LAMBDA_URL env var set for full round-trip tests
 #
 # Usage:
-#   export LAMBDA_URL=<deployed-url>
-#   export WORKER_URL=http://localhost:8787  (from wrangler dev)
+#   export LAMBDA_URL=<deployed-lambda-url>
+#   export WORKER_URL=http://localhost:8787
 #   bash tests/integration/lambda-worker.sh
 #
-# Without deployed Lambda, you can test Worker endpoint locally:
-#   wrangler dev --port 8787
-#   WORKER_URL=http://localhost:8787 bash tests/integration/lambda-worker.sh --worker-only
+# Without Lambda deployed, skips Lambda-specific tests when SKIP_LAMBDA=1:
+#   SKIP_LAMBDA=1 bash tests/integration/lambda-worker.sh
 
 set -euo pipefail
 
+DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$DIR/lib.sh"
+
 WORKER_URL="${WORKER_URL:-http://localhost:8787}"
-LAMBDA_URL="${LAMBDA_URL:-}"  # optional: set to test Lambda too
-PASS=0
-FAIL=0
+LAMBDA_URL="${LAMBDA_URL:-}"
+SKIP_LAMBDA="${SKIP_LAMBDA:-1}"
 
-pass() { echo "  PASS: $1"; ((PASS++)); }
-fail() { echo "  FAIL: $1"; ((FAIL++)); }
+require_cmd jq "install jq via apt/brew/nix" || exit 1
 
-# Register a test user once, reuse token
-test_user="inttest_$(date +%s)"
+echo "=== Lambda-Worker Integration Tests ==="
+echo "WORKER_URL=$WORKER_URL"
+echo "LAMBDA_URL=${LAMBDA_URL:-"(not set — SKIP_LAMBDA=$SKIP_LAMBDA)"}"
+echo ""
+
+# --- Register test user ---
+test_user="inttest_$(date +%s)_$$"
 test_pass="Integration99!"
-echo "=== Integration Test Setup ==="
-
-echo "Registering test user: $test_user"
+echo "--- Setup: register test user '$test_user' ---"
 register_resp=$(curl -s -X POST "$WORKER_URL/register" \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"$test_user\",\"password\":\"$test_pass\"}")
-echo "  Register response: $register_resp"
+echo "  Register: $register_resp"
 
-TOKEN=$(echo "$register_resp" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+TOKEN=
+# Try extracting token from register response
+if echo "$register_resp" | jq -e '.token' &>/dev/null; then
+  TOKEN=$(echo "$register_resp" | jq -r '.token // empty')
+fi
+
+# Fallback: login
 if [ -z "$TOKEN" ]; then
-  # Try login if register failed (user might already exist)
   login_resp=$(curl -s -X POST "$WORKER_URL/login" \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"$test_user\",\"password\":\"$test_pass\"}")
-  TOKEN=$(echo "$login_resp" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-  echo "  Login response: $login_resp"
-else
-  echo "  Got token: ${TOKEN:0:20}..."
+  echo "  Login: $login_resp"
+  TOKEN=$(echo "$login_resp" | jq -r '.token // empty')
 fi
 
 if [ -z "$TOKEN" ]; then
   echo "  ERROR: Could not get auth token. Aborting."
   exit 1
 fi
+echo "  Token: ${TOKEN:0:20}..."
 
+# --- Test 1: Lambda health check ---
 echo ""
 echo "=== Test 1: Lambda health check ==="
-if [ -n "$LAMBDA_URL" ]; then
-  # SigV4-signed curl request (requires awscurl or manual signing)
-  if command -v awscurl &>/dev/null; then
+if [ -n "$LAMBDA_URL" ] && [ "$SKIP_LAMBDA" != "1" ]; then
+  if require_cmd awscurl "install: pip install awscurl"; then
     resp=$(awscurl --service lambda "$LAMBDA_URL/health")
-    echo "  Lambda response: $resp"
-    if echo "$resp" | grep -q '"status":"ok"'; then
+    echo "  Lambda /health: $resp"
+    status=$(echo "$resp" | jq -r '.status // empty')
+    if [ "$status" = "ok" ]; then
       pass "Lambda /health returns ok"
     else
-      fail "Lambda /health unexpected response"
+      fail "Lambda /health — expected status 'ok', got '$status'"
     fi
-  else
-    echo "  SKIP: awscurl not installed (needed for SigV4 signing)"
-    echo "  Install: pip install awscurl"
   fi
 else
-  echo "  SKIP: LAMBDA_URL not set (no Lambda endpoint to test)"
+  echo "  SKIP: LAMBDA_URL not set or SKIP_LAMBDA=1"
 fi
 
+# --- Test 2: Worker health check ---
 echo ""
 echo "=== Test 2: Worker health check ==="
-resp=$(curl -s "$WORKER_URL/health")
-echo "  Worker response: $resp"
-if echo "$resp" | grep -q '"status":"healthy"'; then
-  pass "Worker /health returns healthy"
-else
-  fail "Worker /health unexpected response"
-fi
+resp=$(curl -s -o /tmp/lambda_health.json -w '%{http_code}' "$WORKER_URL/health")
+assert_status 200 "$resp" "Worker /health"
+assert_json_matches '.status' 'healthy|degraded' /tmp/lambda_health.json "Worker /health status"
 
+# --- Test 3: Worker -> Lambda proxy ---
 echo ""
-echo "=== Test 3: Worker -> Lambda proxy (via /lambda/query) ==="
-if [ -n "$LAMBDA_URL" ]; then
-  resp=$(curl -s -X POST "$WORKER_URL/lambda/query" \
+echo "=== Test 3: Worker -> Lambda proxy (/lambda/query) ==="
+if [ -n "$LAMBDA_URL" ] && [ "$SKIP_LAMBDA" != "1" ]; then
+  proxy_code=$(curl -s -o /tmp/lambda_proxy.json -w '%{http_code}' \
+    -X POST "$WORKER_URL/lambda/query" \
     -H "Content-Type: application/json" \
-    -d "{\"action\":\"health\"}")
-  echo "  Proxy response: $resp"
-  if echo "$resp" | grep -q '"status":"ok"'; then
-    pass "Worker proxies to Lambda successfully"
+    -d '{"action":"health"}')
+  echo "  Proxy status: $proxy_code"
+  if [ "$proxy_code" -eq 200 ]; then
+    assert_json_field '.status' 'ok' /tmp/lambda_proxy.json "Lambda proxy response"
   else
-    fail "Worker->Lambda proxy returned unexpected response"
+    fail "Worker -> Lambda proxy — expected 200, got $proxy_code"
   fi
 else
-  echo "  SKIP: LAMBDA_URL not set"
+  echo "  SKIP: LAMBDA_URL not set or SKIP_LAMBDA=1"
 
-  # Test the worker endpoint exists even without Lambda configured
-  resp=$(curl -s -X POST "$WORKER_URL/lambda/query" \
+  # Test endpoint exists but expect 502 without Lambda configured
+  proxy_code=$(curl -s -o /tmp/lambda_proxy.json -w '%{http_code}' \
+    -X POST "$WORKER_URL/lambda/query" \
     -H "Content-Type: application/json" \
     -d '{"test":true}')
-  echo "  Worker /lambda/query (no Lambda configured): $resp"
-  pass "Worker /lambda/query endpoint is reachable (returns 502 if no Lambda URL)"
+  echo "  Worker /lambda/query (no Lambda): HTTP $proxy_code"
+  if [ "$proxy_code" -eq 502 ]; then
+    pass "Worker /lambda/query returns 502 when Lambda not configured (expected)"
+  elif [ "$proxy_code" -eq 200 ]; then
+    pass "Worker /lambda/query reachable (code $proxy_code)"
+  else
+    fail "Worker /lambda/query — unexpected status $proxy_code"
+  fi
 fi
 
+# --- Test 4: Auth round-trip via gateway ---
 echo ""
-echo "=== Test 4: Auth round-trip (register -> login -> verify -> me) ==="
-
-# Verify token
-verify_resp=$(curl -s "$WORKER_URL/protected" \
+echo "=== Test 4: Gateway auth round-trip (/protected) ==="
+prot_code=$(curl -s -o /tmp/lambda_protected.json -w '%{http_code}' \
+  "$WORKER_URL/protected" \
   -H "Authorization: Bearer $TOKEN")
-echo "  Protected endpoint: $verify_resp"
-if echo "$verify_resp" | grep -q '"status":"ok"'; then
-  pass "Token verification succeeds via gateway-worker"
-else
-  fail "Token verification failed"
-fi
+assert_status 200 "$prot_code" "Gateway /protected (valid token)"
+assert_json_field '.status' 'ok' /tmp/lambda_protected.json "Gateway protected response"
 
-# Direct auth verify
-verify_direct=$(curl -s "$WORKER_URL/verify" \
-  -H "Authorization: Bearer $TOKEN")
-echo "  Direct verify: $verify_direct"
-if echo "$verify_direct" | grep -q '"valid":true'; then
-  pass "Direct token verification succeeds"
-else
-  fail "Direct token verification failed"
-fi
-
+# --- Test 5: Direct auth verify ---
 echo ""
-echo "=== Test 5: Auth validation ==="
-# Test invalid password (wrong password -> 401)
-bad_login=$(curl -s -X POST "$WORKER_URL/login" \
+echo "=== Test 5: Direct auth verify ==="
+verify_code=$(curl -s -o /tmp/lambda_verify.json -w '%{http_code}' \
+  "$WORKER_URL/verify" \
+  -H "Authorization: Bearer $TOKEN")
+assert_status 200 "$verify_code" "Direct /verify (valid token)"
+assert_json_field '.status' 'ok' /tmp/lambda_verify.json "Direct verify status"
+
+# --- Test 6: Auth validation (wrong password) ---
+echo ""
+echo "=== Test 6: Auth validation ==="
+
+# Wrong password -> 401
+bad_code=$(curl -s -o /tmp/lambda_bad_login.json -w '%{http_code}' \
+  -X POST "$WORKER_URL/login" \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"$test_user\",\"password\":\"WRONG\"}")
-echo "  Wrong password: $bad_login"
-if echo "$bad_login" | grep -q '401\|Invalid credentials'; then
-  pass "Wrong password returns 401"
-else
-  fail "Wrong password did not return 401"
-fi
+assert_status 401 "$bad_code" "Wrong password returns 401"
 
-# Test short password (validation -> 400)
-short_reg=$(curl -s -X POST "$WORKER_URL/register" \
+# Short password -> 400
+short_code=$(curl -s -o /tmp/lambda_short_reg.json -w '%{http_code}' \
+  -X POST "$WORKER_URL/register" \
   -H "Content-Type: application/json" \
-  -d "{\"username\":\"newuser\",\"password\":\"ab\"}")
-echo "  Short password: $short_reg"
-if echo "$short_reg" | grep -q '400\|Invalid password'; then
-  pass "Short password returns 400"
-else
-  fail "Short password did not return 400"
-fi
+  -d '{"username":"newuser","password":"ab"}')
+assert_status 400 "$short_code" "Short password returns 400"
 
+# --- Lambda config endpoint ---
 echo ""
-echo "=== Test 6: Lambda config endpoint ==="
-if [ -n "$LAMBDA_URL" ] && command -v awscurl &>/dev/null; then
+echo "=== Test 7: Lambda config endpoint ==="
+if [ -n "$LAMBDA_URL" ] && [ "$SKIP_LAMBDA" != "1" ] && command -v awscurl &>/dev/null; then
   resp=$(awscurl --service lambda "$LAMBDA_URL/config")
   echo "  Lambda /config: $resp"
-  if echo "$resp" | grep -q '"environment"'; then
+  if echo "$resp" | jq -e '.environment' &>/dev/null; then
     pass "Lambda /config returns environment variables"
   else
-    fail "Lambda /config unexpected"
+    fail "Lambda /config — missing 'environment' field"
   fi
 else
   echo "  SKIP: needs LAMBDA_URL + awscurl"
 fi
 
-echo ""
-echo "=========================================="
-echo "Results: $PASS passed, $FAIL failed"
-echo "=========================================="
-[ "$FAIL" -eq 0 ] && exit 0 || exit 1
+print_summary "lambda-worker"

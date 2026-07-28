@@ -98,6 +98,76 @@ bash scripts/deploy-localstack.sh
 bash tests/integration/lambda-worker.sh
 ```
 
+## Observability
+
+Multi-layer observability across Cloudflare Workers + AWS Lambda.
+
+### OTel Pipeline (Workers → SigNoz)
+
+```
+Worker (Rust WASM) ──OTLP/protobuf──▶ SigNoz Collector ──▶ ClickHouse
+                     port 4318              │
+                                            └──▶ Prometheus ──▶ Grafana
+```
+
+- OTLP span exporter: prost/protobuf encoding, HTTP transport, retry + in-memory buffer
+- W3C traceparent propagation across all services (gateway → auth/analytics/lambda)
+- Loki structured log exporter (JSON over HTTP, optional)
+- In-memory Prometheus metrics endpoint (`/metrics`)
+- Dependency health checks (`/health`, `/livez`, `/readyz`)
+
+### Prometheus / Grafana
+
+| Asset | Description |
+|-------|-------------|
+| `prometheus/prometheus.yml` | Scrape targets: SigNoz OTLP, worker metrics endpoint |
+| `prometheus/rules/worker-slo.yml` | SLO burn-rate alerts (5m/30m). 99.9% success, p99 < 2s |
+| `tests/worker-slo.test.yml` | SLO rule validation (make prom-test) |
+| `grafana/dashboards/worker-red.json` | RED metrics dashboard (Rate/Errors/Duration) |
+| `grafana/dashboards/loki-logs.json` | Logs dashboard with trace_id correlation |
+| `k6/load.js` | Load test script for SLO validation |
+| `scripts/validate-dashboards.sh` | Dashboard JSON validation |
+
+Validate: `make prom-test` (promtool check rules + unit test)
+
+### AWS CloudWatch / X-Ray / ADOT (Lambda)
+
+| Feature | Terraform Resource |
+|---------|-------------------|
+| Dashboard | `aws/cloudwatch.tf` — invocations, errors, p50/p95/p99 duration |
+| Alarms | Lambda errors > 0, p95 > 5s, throttles > 0, ERROR log count |
+| X-Ray tracing | `lambda.tf`: `tracing_config { mode = "Active" }` |
+| ADOT layer | aws-otel-collector-amd64 sidecar for enhanced metrics |
+| IAM permissions | `AWSXRayDaemonWriteAccess` + `cloudwatch:PutMetricData` |
+
+### SLOs & Runbooks
+
+- SLO targets: 99.9% success rate, p99 latency < 2000ms (worker), < 5000ms (Lambda)
+- Burn-rate alerts fire when 5m or 30m error budget is consumed
+- See [RUNBOOK.md](./RUNBOOK.md) for alert fire-fighting procedures:
+  - Worker error budget burn
+  - Lambda error rate / duration
+  - D1 query latency
+  - Auth failure spike
+
+### Distributed Trace Flow
+
+```
+Browser ──▶ Gateway Worker ──▶ Auth/Analytics (traceparent)
+                │──▶ Lambda (traceparent via SigV4 headers)
+                └──▶ SigNoz OTLP (spans)
+```
+
+Every service extracts or creates a W3C `traceparent` header, passes it to downstream calls, and echoes it in responses. Correlate logs across services via `trace_id`.
+
+### Local Dev
+
+```bash
+docker compose up -d      # Prometheus, Grafana, SigNoz, LocalStack
+make prom-test            # validate SLO rules
+cd workers/auth && wrangler dev --port 8788  # local auth worker
+```
+
 ## Known Issues
 
 ### Terraform v5
