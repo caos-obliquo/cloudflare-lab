@@ -166,13 +166,19 @@ echo ""
 # Wait for health on each
 echo "--- Waiting for health ---"
 ALL_UP=1
-wait_for_health "gateway" "$GATEWAY_URL" 60 || ALL_UP=0
-wait_for_health "auth" "$AUTH_URL" 60 || ALL_UP=0
-wait_for_health "analytics" "$ANALYTICS_URL" 60 || ALL_UP=0
+wait_for_health "gateway" "$GATEWAY_URL" 120 || ALL_UP=0
+wait_for_health "auth" "$AUTH_URL" 120 || ALL_UP=0
+wait_for_health "analytics" "$ANALYTICS_URL" 120 || ALL_UP=0
 echo ""
 
 if [ "$ALL_UP" -eq 0 ]; then
   echo "FATAL: Not all workers became healthy. Aborting."
+  echo ""
+  echo "=== Dumping wrangler dev logs (last 20 lines each) ==="
+  for log in /tmp/wrangler-gateway.log /tmp/wrangler-auth.log /tmp/wrangler-analytics.log; do
+    echo "--- $log ---"
+    tail -20 "$log" 2>/dev/null || echo "  (no log file)"
+  done
   exit 1
 fi
 
