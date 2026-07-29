@@ -113,6 +113,7 @@ trap cleanup EXIT INT TERM
 boot_worker() {
   local name=$1 dir=$2 port=$3
   echo "  Booting $name on port $port..."
+  echo "  Command: wrangler dev --port $port --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS --var SESSION_SECRET:\"$SESSION_SECRET\" --cwd $dir"
   # Redirect both stdout and stderr to a log file so output isn't lost
   local logfile="/tmp/wrangler-${name}.log"
   # The --ip 127.0.0.1 is important for security (not listening on all interfaces)
@@ -177,7 +178,7 @@ if [ "$ALL_UP" -eq 0 ]; then
   echo "=== Dumping wrangler dev logs (last 20 lines each) ==="
   for log in /tmp/wrangler-gateway.log /tmp/wrangler-auth.log /tmp/wrangler-analytics.log; do
     echo "--- $log ---"
-    tail -20 "$log" 2>/dev/null || echo "  (no log file)"
+    tail -200 "$log" 2>/dev/null || echo "  (no log file)"
   done
   exit 1
 fi
