@@ -165,19 +165,14 @@ boot_worker "analytics" "$WORKER_ANALYTICS" "$ANALYTICS_PORT"
 echo ""
 
 # Wait for health on each
-echo "--- Waiting for health (parallel) ---"
-GATEWAY_UP=0; AUTH_UP=0; ANALYTICS_UP=0
-wait_for_health "gateway" "$GATEWAY_URL" 180 && GATEWAY_UP=1 &
-WPID1=$!
-wait_for_health "auth" "$AUTH_URL" 180 && AUTH_UP=1 &
-WPID2=$!
-wait_for_health "analytics" "$ANALYTICS_URL" 180 && ANALYTICS_UP=1 &
-WPID3=$!
-wait $WPID1 $WPID2 $WPID3
-ALL_UP=$((GATEWAY_UP + AUTH_UP + ANALYTICS_UP))
+echo "--- Waiting for health ---"
+ALL_UP=1
+wait_for_health "gateway" "$GATEWAY_URL" 120 || ALL_UP=0
+wait_for_health "auth" "$AUTH_URL" 120 || ALL_UP=0
+wait_for_health "analytics" "$ANALYTICS_URL" 120 || ALL_UP=0
 echo ""
 
-if [ "$ALL_UP" -lt 3 ]; then
+if [ "$ALL_UP" -eq 0 ]; then
   echo "FATAL: Not all workers became healthy. Aborting."
   echo ""
   echo "=== Dumping wrangler dev logs (last 20 lines each) ==="
