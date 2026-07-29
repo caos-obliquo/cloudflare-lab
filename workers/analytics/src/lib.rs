@@ -173,7 +173,10 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
     }
     match events_inner(req, env).await {
         Ok(r) => Ok(r),
-        Err(e) => json_error_response(500, &format!("events error: {:?}", e), ""),
+        Err(e) => {
+            console_log!("[events] error: {:?}", e);
+            json_error_response(500, &format!("events error: {:?}", e), "")
+        }
     }
 }
 
