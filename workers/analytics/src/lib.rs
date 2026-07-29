@@ -173,10 +173,7 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
     }
     match events_inner(req, env).await {
         Ok(r) => Ok(r),
-        Err(e) => {
-            console_log!("[events] error: {:?}", e);
-            json_error_response(500, &format!("events error: {:?}", e), "")
-        }
+        Err(e) => json_error_response(500, &format!("events error: {:?}", e), ""),
     }
 }
 
@@ -205,7 +202,7 @@ async fn events_inner(req: Request, env: &Env) -> Result<Response> {
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
     let result = db.prepare("SELECT id, event_type, event_data, created_at FROM analytics_events ORDER BY created_at DESC LIMIT ?1 OFFSET ?2")
-        .bind(&[JsValue::from(limit as i64), JsValue::from(offset as i64)])?
+        .bind(&[JsValue::from(limit as f64), JsValue::from(offset as f64)])?
         .all().await?;
     let rows = result.results::<serde_json::Value>()?;
 
