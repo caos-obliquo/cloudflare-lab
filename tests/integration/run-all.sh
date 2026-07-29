@@ -116,7 +116,8 @@ boot_worker() {
   # Redirect both stdout and stderr to a log file so output isn't lost
   local logfile="/tmp/wrangler-${name}.log"
   # The --ip 127.0.0.1 is important for security (not listening on all interfaces)
-  npx wrangler dev --port "$port" --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS \
+  # Use wrangler directly (not npx) — pre-installed globally in CI via npm install -g wrangler
+  wrangler dev --port "$port" --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS \
     --var SESSION_SECRET:"$SESSION_SECRET" \
     --cwd "$dir" \
     > "$logfile" 2>&1 &
@@ -127,7 +128,7 @@ boot_worker() {
 
 # --- Wait for health ---
 wait_for_health() {
-  local name=$1 url=$2 timeout_sec="${3:-60}"
+  local name=$1 url=$2 timeout_sec="${3:-120}"
   local waited=0
   echo -n "  Waiting for $name ($url/health) up to ${timeout_sec}s..."
   while [ "$waited" -lt "$timeout_sec" ]; do
