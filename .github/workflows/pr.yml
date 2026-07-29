@@ -90,6 +90,9 @@ jobs:
           target: wasm32-unknown-unknown
       - run: sudo apt-get update && sudo apt-get install -y jq
       - run: cargo install worker-build
+      # Pre-install wrangler globally — npx in CI downloads from npm on
+      # first run, adding 20-30s latency that can cause health-check timeout
+      - run: npm install -g wrangler
       - uses: Swatinem/rust-cache@v2
       # Build workers before running wrangler dev (wrangler dev in CI is slow to
       # build on first request — pre-build to avoid health-check timeout)
