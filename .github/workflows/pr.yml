@@ -80,6 +80,7 @@ jobs:
     env:
       SESSION_SECRET: test-secret-for-ci
       SKIP_NO_BINDINGS: 1
+      CI: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -90,14 +91,11 @@ jobs:
           target: wasm32-unknown-unknown
       - run: sudo apt-get update && sudo apt-get install -y jq
       - run: cargo install worker-build
-      # Pre-install wrangler globally — npx in CI downloads from npm on
-      # first run, adding 20-30s latency that can cause health-check timeout
-      - run: npm install -g wrangler
+      # Pin wrangler to latest — CI runner often has stale version (4.86.0)
+      # whose bundled miniflare doesn't support the worker's compatibility_date.
+      # Latest wrangler ships newest miniflare that matches.
+      - run: npm install -g wrangler@latest
       - uses: Swatinem/rust-cache@v2
-      # Build workers before running wrangler dev (wrangler dev in CI is slow to
-      # build on first request — pre-build to avoid health-check timeout)
-      - run: |
-          cd workers/gateway   && worker-build --release 2>&1 | tail -3
-          cd ../auth           && worker-build --release 2>&1 | tail -3
-          cd ../analytics      && worker-build --release 2>&1 | tail -3
+      # wrangler dev handles its own build (worker-build --release on first req).
+      # No pre-build needed — it's redundant and causes a file-watch rebuild loop.
       - run: bash tests/integration/run-all.sh --only gateway,auth,analytics
