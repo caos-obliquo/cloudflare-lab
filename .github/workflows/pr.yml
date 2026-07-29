@@ -96,6 +96,22 @@ jobs:
       # Latest wrangler ships newest miniflare that matches.
       - run: npm install -g wrangler@latest
       - uses: Swatinem/rust-cache@v2
-      # wrangler dev handles its own build (worker-build --release on first req).
-      # No pre-build needed — it's redundant and causes a file-watch rebuild loop.
+      # Pre-build workers, then remove [build] from wrangler.toml so wrangler dev
+      # uses pre-built artifacts instead of re-running worker-build (which triggers
+      # a file-watch rebuild loop, doubling startup time).
+      - run: |
+          set -e
+          for dir in gateway auth analytics; do
+            cd "workers/$dir"
+            worker-build --release 2>&1 | tail -3
+            cd "$OLDPWD"
+          done
+          # Comment out [build] section to prevent wrangler dev from rebuilding
+          for f in workers/*/wrangler.toml; do
+            sed -i '/^\[build\]/,/^\[/s/^command = .*/# command = "worker-build --release"/' "$f"
+          done
       - run: bash tests/integration/run-all.sh --only gateway,auth,analytics
+      # Restore wrangler.toml files (undo sed changes). This preserves the working
+      # tree for future local development without dirty state.
+      - if: always()
+        run: git checkout -- workers/*/wrangler.toml
