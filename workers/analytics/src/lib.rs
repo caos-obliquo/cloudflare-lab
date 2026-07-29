@@ -171,6 +171,13 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
     if require_auth(&req, env).await?.is_none() {
         return json_error_response(401, "Unauthorized", "");
     }
+    match events_inner(req, env).await {
+        Ok(r) => Ok(r),
+        Err(e) => json_error_response(500, &format!("events error: {:?}", e), ""),
+    }
+}
+
+async fn events_inner(req: Request, env: &Env) -> Result<Response> {
     let db = env.d1("D1")?;
     let query: std::collections::HashMap<String, String> = req
         .url()?

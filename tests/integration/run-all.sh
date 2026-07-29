@@ -199,6 +199,12 @@ run_suite() {
     else
       echo "  >>> Suite '$name' FAILED <<<"
       TOTAL_FAIL=$((TOTAL_FAIL + 1))
+      # Dump worker logs to help diagnose failure
+      echo "  === Worker logs (last 20 lines) ==="
+      for log in /tmp/wrangler-gateway.log /tmp/wrangler-auth.log /tmp/wrangler-analytics.log; do
+        echo "  --- $log ---"
+        tail -20 "$log" 2>/dev/null || echo "  (no log file)"
+      done
     fi
   else
     echo "  SKIP suite '$name' (filtered)"
