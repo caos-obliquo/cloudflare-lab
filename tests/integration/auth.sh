@@ -27,7 +27,7 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 # Unique test user per run
-test_user="authtest_$(date +%s)_$$"
+test_user="authtest$(date +%s)$$"
 test_pass="StrongPass99!"
 
 # --------------------------------------------------

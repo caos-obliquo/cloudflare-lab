@@ -58,7 +58,7 @@ WORKER_ANALYTICS="$REPO_ROOT/workers/analytics"
 WDRY_FLAGS=""
 [ -n "${PERSIST:-}" ] && WDRY_FLAGS="$WDRY_FLAGS --persist"
 # In CI, skip binding validation (no D1/KV/DO available)
-[ "${SKIP_NO_BINDINGS:-0}" = "1" ] && WDRY_FLAGS="$WDRY_FLAGS --no-bindings"
+[ "${SKIP_NO_BINDINGS:-0}" = "1" ] && WDRY_FLAGS="$WDRY_FLAGS --local"
 
 # --- Parse --only ---
 RUN_ALL_SUITES=1
@@ -113,10 +113,12 @@ trap cleanup EXIT INT TERM
 boot_worker() {
   local name=$1 dir=$2 port=$3
   echo "  Booting $name on port $port..."
+  echo "  Command: wrangler dev --port $port --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS --var SESSION_SECRET:\"$SESSION_SECRET\" --cwd $dir"
   # Redirect both stdout and stderr to a log file so output isn't lost
   local logfile="/tmp/wrangler-${name}.log"
   # The --ip 127.0.0.1 is important for security (not listening on all interfaces)
-  npx wrangler dev --port "$port" --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS \
+  # Use wrangler directly (not npx) — pre-installed globally in CI via npm install -g wrangler
+  wrangler dev --port "$port" --ip 127.0.0.1 --inspector-port 0 $WDRY_FLAGS \
     --var SESSION_SECRET:"$SESSION_SECRET" \
     --cwd "$dir" \
     > "$logfile" 2>&1 &
@@ -127,7 +129,7 @@ boot_worker() {
 
 # --- Wait for health ---
 wait_for_health() {
-  local name=$1 url=$2 timeout_sec="${3:-60}"
+  local name=$1 url=$2 timeout_sec="${3:-120}"
   local waited=0
   echo -n "  Waiting for $name ($url/health) up to ${timeout_sec}s..."
   while [ "$waited" -lt "$timeout_sec" ]; do
@@ -165,13 +167,19 @@ echo ""
 # Wait for health on each
 echo "--- Waiting for health ---"
 ALL_UP=1
-wait_for_health "gateway" "$GATEWAY_URL" 60 || ALL_UP=0
-wait_for_health "auth" "$AUTH_URL" 60 || ALL_UP=0
-wait_for_health "analytics" "$ANALYTICS_URL" 60 || ALL_UP=0
+wait_for_health "gateway" "$GATEWAY_URL" 120 || ALL_UP=0
+wait_for_health "auth" "$AUTH_URL" 120 || ALL_UP=0
+wait_for_health "analytics" "$ANALYTICS_URL" 120 || ALL_UP=0
 echo ""
 
 if [ "$ALL_UP" -eq 0 ]; then
   echo "FATAL: Not all workers became healthy. Aborting."
+  echo ""
+  echo "=== Dumping wrangler dev logs (last 20 lines each) ==="
+  for log in /tmp/wrangler-gateway.log /tmp/wrangler-auth.log /tmp/wrangler-analytics.log; do
+    echo "--- $log ---"
+    tail -200 "$log" 2>/dev/null || echo "  (no log file)"
+  done
   exit 1
 fi
 
@@ -191,6 +199,12 @@ run_suite() {
     else
       echo "  >>> Suite '$name' FAILED <<<"
       TOTAL_FAIL=$((TOTAL_FAIL + 1))
+      # Dump worker logs to help diagnose failure
+      echo "  === Worker logs (last 20 lines) ==="
+      for log in /tmp/wrangler-gateway.log /tmp/wrangler-auth.log /tmp/wrangler-analytics.log; do
+        echo "  --- $log ---"
+        tail -20 "$log" 2>/dev/null || echo "  (no log file)"
+      done
     fi
   else
     echo "  SKIP suite '$name' (filtered)"

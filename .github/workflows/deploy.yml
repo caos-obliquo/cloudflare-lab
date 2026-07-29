@@ -49,12 +49,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - working-directory: workers/auth
         run: worker-build --release
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/auth
-          command: deploy
+      - working-directory: workers/auth
+        run: wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-gateway:
     needs: [build, deploy-auth]
@@ -69,12 +68,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - working-directory: workers/gateway
         run: worker-build --release
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/gateway
-          command: deploy
+      - working-directory: workers/gateway
+        run: wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-analytics:
     needs: [build, deploy-gateway]
@@ -89,12 +87,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - working-directory: workers/analytics
         run: worker-build --release
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/analytics
-          command: deploy
+      - working-directory: workers/analytics
+        run: wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   smoke:
     needs: [deploy-auth, deploy-gateway, deploy-analytics]

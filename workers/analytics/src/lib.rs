@@ -143,11 +143,18 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Ok(resp)
 }
 
+const MAX_EVENT_DATA_SIZE: usize = 10 * 1024; // 10KB
+
 async fn track(mut req: Request, env: &Env) -> Result<Response> {
     if require_auth(&req, env).await?.is_none() {
         return json_error_response(401, "Unauthorized", "");
     }
     let body: TrackRequest = req.json().await?;
+    if let Some(ref data) = body.event_data {
+        if data.len() > MAX_EVENT_DATA_SIZE {
+            return json_error_response(400, "Event data exceeds 10KB limit", "");
+        }
+    }
     let db = env.d1("D1")?;
     let data = body.event_data.unwrap_or_default();
     db.prepare("INSERT INTO analytics_events (event_type, event_data) VALUES (?1, ?2)")
@@ -164,6 +171,13 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
     if require_auth(&req, env).await?.is_none() {
         return json_error_response(401, "Unauthorized", "");
     }
+    match events_inner(req, env).await {
+        Ok(r) => Ok(r),
+        Err(e) => json_error_response(500, &format!("events error: {:?}", e), ""),
+    }
+}
+
+async fn events_inner(req: Request, env: &Env) -> Result<Response> {
     let db = env.d1("D1")?;
     let query: std::collections::HashMap<String, String> = req
         .url()?
@@ -177,13 +191,18 @@ async fn events(req: Request, env: &Env) -> Result<Response> {
         .clamp(1, 100);
     let offset: u32 = query.get("cursor").and_then(|v| v.parse().ok()).unwrap_or(0);
 
-    let total = db
+    let count_result = db
         .prepare("SELECT COUNT(*) as count FROM analytics_events")
-        .first::<i64>(Some("count"))
-        .await?
+        .all()
+        .await?;
+    let total: i64 = count_result
+        .results::<serde_json::Value>()?
+        .first()
+        .and_then(|r| r.get("count"))
+        .and_then(|v| v.as_i64())
         .unwrap_or(0);
     let result = db.prepare("SELECT id, event_type, event_data, created_at FROM analytics_events ORDER BY created_at DESC LIMIT ?1 OFFSET ?2")
-        .bind(&[JsValue::from(limit as i64), JsValue::from(offset as i64)])?
+        .bind(&[JsValue::from(limit as f64), JsValue::from(offset as f64)])?
         .all().await?;
     let rows = result.results::<serde_json::Value>()?;
 
@@ -206,10 +225,15 @@ async fn summary(req: Request, env: &Env) -> Result<Response> {
         return json_error_response(401, "Unauthorized", "");
     }
     let db = env.d1("D1")?;
-    let total = db
+    let total_result = db
         .prepare("SELECT COUNT(*) as count FROM analytics_events")
-        .first::<i64>(Some("count"))
-        .await?
+        .all()
+        .await?;
+    let total: i64 = total_result
+        .results::<serde_json::Value>()?
+        .first()
+        .and_then(|r| r.get("count"))
+        .and_then(|v| v.as_i64())
         .unwrap_or(0);
     let by_type = db
         .prepare("SELECT event_type, COUNT(*) as count FROM analytics_events GROUP BY event_type ORDER BY count DESC")

@@ -80,21 +80,38 @@ jobs:
     env:
       SESSION_SECRET: test-secret-for-ci
       SKIP_NO_BINDINGS: 1
+      CI: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: wasm32-unknown-unknown
       - run: sudo apt-get update && sudo apt-get install -y jq
       - run: cargo install worker-build
+      # Pin wrangler to latest — CI runner often has stale version (4.86.0)
+      # whose bundled miniflare doesn't support the worker's compatibility_date.
+      # Latest wrangler ships newest miniflare that matches.
+      - run: npm install -g wrangler@latest
       - uses: Swatinem/rust-cache@v2
-      # Build workers before running wrangler dev (wrangler dev in CI is slow to
-      # build on first request — pre-build to avoid health-check timeout)
+      # Pre-build workers, then remove [build] from wrangler.toml so wrangler dev
+      # uses pre-built artifacts instead of re-running worker-build (which triggers
+      # a file-watch rebuild loop, doubling startup time).
       - run: |
-          cd workers/gateway   && worker-build --release 2>&1 | tail -3
-          cd ../auth           && worker-build --release 2>&1 | tail -3
-          cd ../analytics      && worker-build --release 2>&1 | tail -3
+          set -e
+          for dir in gateway auth analytics; do
+            cd "workers/$dir"
+            worker-build --release 2>&1 | tail -3
+            cd "$OLDPWD"
+          done
+          # Comment out [build] section to prevent wrangler dev from rebuilding
+          for f in workers/*/wrangler.toml; do
+            sed -i '/^\[build\]/,/^\[/s/^command = .*/# command = "worker-build --release"/' "$f"
+          done
       - run: bash tests/integration/run-all.sh --only gateway,auth,analytics
+      # Restore wrangler.toml files (undo sed changes). This preserves the working
+      # tree for future local development without dirty state.
+      - if: always()
+        run: git checkout -- workers/*/wrangler.toml

@@ -30,7 +30,7 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 # --- Setup: get a session token from auth worker ---
-analytics_user="analtest_$(date +%s)_$$"
+analytics_user="analtest$(date +%s)$$"
 analytics_pass="TestPass789!"
 echo "--- Setup: register user for auth ---"
 reg_code=$(curl -s -o "$TMPDIR/setup_reg.json" -w '%{http_code}' \
