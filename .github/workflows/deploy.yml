@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for url in "https://auth-worker.workers.dev/health" "https://gateway-worker.workers.dev/health" "https://analytics-worker.workers.dev/health"; do
+          for url in "https://auth-worker.evnort01.workers.dev/health" "https://gateway-worker.evnort01.workers.dev/health" "https://analytics-worker.evnort01.workers.dev/health"; do
             for i in {1..6}; do
               code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "000")
               if [[ "$code" =~ ^(2|3)..$ ]]; then
