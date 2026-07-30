@@ -38,6 +38,7 @@ jobs:
   deploy-auth:
     needs: build
     runs-on: self-hosted
+    environment: staging
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -54,6 +55,7 @@ jobs:
   deploy-gateway:
     needs: [build, deploy-auth]
     runs-on: self-hosted
+    environment: staging
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -70,6 +72,7 @@ jobs:
   deploy-analytics:
     needs: [build, deploy-gateway]
     runs-on: self-hosted
+    environment: staging
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
