@@ -50,10 +50,15 @@
       "title": "Log Volume by Worker",
       "description": "Log entries per second grouped by worker service",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "datasource": {
         "type": "loki",
-        "uid": "${DS_LOKI}"
+        "uid": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -67,24 +72,43 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "normal", "group": "A" },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Entries/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }]
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -98,7 +122,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by (service) (rate({service=~\"gateway|auth|analytics\"}[5m]))",
@@ -114,10 +138,15 @@
       "title": "Error Rate Over Time",
       "description": "Error-level log entries per second by worker",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "datasource": {
         "type": "loki",
-        "uid": "${DS_LOKI}"
+        "uid": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -131,27 +160,47 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "normal", "group": "A" },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Errors/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -165,7 +214,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by (service) (rate({service=~\"gateway|auth|analytics\"} | logfmt | level=~\"ERROR|error\"[5m]))",
@@ -181,15 +230,24 @@
       "title": "Recent Logs",
       "description": "Latest log entries across all workers",
       "type": "logs",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
       "datasource": {
         "type": "loki",
-        "uid": "${DS_LOKI}"
+        "uid": "loki"
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           }
         },
         "overrides": []
@@ -208,7 +266,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "loki"
           },
           "editorMode": "builder",
           "expr": "{service=~\"gateway|auth|analytics\"} | logfmt | line_format \"[{{.level}}] {{.service}}: {{.message}}\"",
@@ -234,11 +292,19 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["cloudflare-lab", "logs", "loki"],
+  "tags": [
+    "cloudflare-lab",
+    "logs",
+    "loki"
+  ],
   "templating": {
     "list": [
       {
-        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
         "hide": 0,
         "includeAll": true,
         "label": "Service",
@@ -257,7 +323,7 @@
         "type": "query",
         "datasource": {
           "type": "loki",
-          "uid": "${DS_LOKI}"
+          "uid": "loki"
         }
       }
     ]
@@ -270,6 +336,6 @@
   "timezone": "",
   "title": "Worker Logs",
   "uid": "worker-logs",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

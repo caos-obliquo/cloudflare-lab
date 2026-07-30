@@ -43,3 +43,10 @@ Thumbs.db
 
 # Project specific
 .cf-terraforming.yaml
+
+# Screenshots
+*.png
+*.jpg
+
+# Gitleaks
+gitleaks-results.sarif/

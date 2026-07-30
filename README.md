@@ -6,13 +6,16 @@ Demo-ready observability portfolio for Mid-Cloud Observability Engineer role. Ru
 
 ```
 Browser ──▶ Gateway Worker ──┬── Service Binding ──▶ Auth Worker (D1+DO)
-                             │── KV                   Analytics Worker (D1)
                              │── D1                   Rate Limiter (DO)
+                             │── KV
                              │── Queue
                              │── Workers AI
                              │── SigV4 ──▶ AWS Lambda (devops-api)
                              │── OTLP  ──▶ SigNoz Collector ──▶ ClickHouse
-                             └── EventBridge (LocalStack)
+                             └── Loki ──▶ Grafana (logs)
+
+                   Analytics Worker (Bearer) ──▶ D1 (analytics_events)
+                                                  └── OTLP ──▶ SigNoz
 ```
 
 ## Workers
@@ -120,9 +123,9 @@ Worker (Rust WASM) ──OTLP/protobuf──▶ SigNoz Collector ──▶ Click
 
 | Asset | Description |
 |-------|-------------|
-| `prometheus/prometheus.yml` | Scrape targets: SigNoz OTLP, worker metrics endpoint |
-| `prometheus/rules/worker-slo.yml` | SLO burn-rate alerts (5m/30m). 99.9% success, p99 < 2s |
-| `tests/worker-slo.test.yml` | SLO rule validation (make prom-test) |
+| `prometheus/prometheus.yml` | Scrape targets: worker metrics endpoints (via docker-compose inline config) |
+| `prometheus/rules/worker-slo.yml` | SLO burn-rate alerts (5m/30m). 99% success, p99 < 500ms |
+| `prometheus/rules/tests/worker-slo.test.yml` | SLO rule validation (make prom-test) |
 | `grafana/dashboards/worker-red.json` | RED metrics dashboard (Rate/Errors/Duration) |
 | `grafana/dashboards/loki-logs.json` | Logs dashboard with trace_id correlation |
 | `k6/load.js` | Load test script for SLO validation |
@@ -142,7 +145,7 @@ Validate: `make prom-test` (promtool check rules + unit test)
 
 ### SLOs & Runbooks
 
-- SLO targets: 99.9% success rate, p99 latency < 2000ms (worker), < 5000ms (Lambda)
+- SLO targets: 99% success rate, p99 latency < 500ms (worker), < 5000ms (Lambda)
 - Burn-rate alerts fire when 5m or 30m error budget is consumed
 - See [RUNBOOK.md](./RUNBOOK.md) for alert fire-fighting procedures:
   - Worker error budget burn
@@ -163,7 +166,10 @@ Every service extracts or creates a W3C `traceparent` header, passes it to downs
 ### Local Dev
 
 ```bash
-docker compose up -d      # Prometheus, Grafana, SigNoz, LocalStack
+# Loki, Prometheus, Grafana (docker or podman)
+docker compose up -d
+# or: podman compose up -d
+
 make prom-test            # validate SLO rules
 cd workers/auth && wrangler dev --port 8788  # local auth worker
 ```

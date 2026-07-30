@@ -75,7 +75,7 @@ make prom-test
 
 Rules file: `prometheus/rules/worker-slo.yml`
 Tests file: `prometheus/rules/tests/worker-slo.test.yml`
-SLO targets: 99.9% success rate, p99 latency < 2000ms (worker), < 5000ms (Lambda)
+SLO targets: 99% success rate, p99 latency < 500ms (worker), < 5000ms (Lambda)
 
 ## Load Test (k6)
 
