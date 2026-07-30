@@ -79,7 +79,7 @@ Prometheus text format.
 **Counter**: `cloudflare_requests_total{method,path}` — incremented per request.
 **Error counter**: `cloudflare_request_errors_total{method,path}` — incremented
 when status >= 400.
-**Histogram**: `cloudflare_request_duration_ms{method,path}` — raw values with
+**Summary**: `cloudflare_request_duration_ms{method,path}` — raw values with
 p50/p90/p99 computed on-scrape.
 
 ```prometheus
@@ -494,16 +494,15 @@ let (status, details) = registry.overall_status();
 ### SLO: Gateway Availability
 
 ```
-SLO: 99.9% of requests return 2xx/3xx
+SLO: 99% of requests return 2xx/3xx
 Measurement: cloudflare_request_errors_total / cloudflare_requests_total
 Window: 30 days
-Exclude: /health, /livez, /readyz (monitoring traffic skews ratio)
 ```
 
 ### SLO: Gateway Latency
 
 ```
-SLO: 99% of requests complete under 1000ms
+SLO: 99% of requests complete under 500ms
 Measurement: cloudflare_request_duration_ms{quantile="0.99"}
 Window: 7 days
 ```
@@ -527,19 +526,21 @@ Window: 7 days
 ### Burn-Rate Alerting
 
 ```
-Rule: 5% budget burn in 1 hour
-→ Alert: page
+Alert: WorkerSLOFastBurn (CRITICAL)
+  - Multi-window (5m AND 1h) error ratio > 0.144
+  - burn_rate = 14.4× target (1% budget consumed in ~1h)
+  - Severity: page
 
-Rule: 10% budget burn in 24 hours
-→ Alert: page
-
-Rule: 50% budget burn in 7 days
-→ Alert: slack notification
+Alert: WorkerSLOSlowBurn (WARNING)
+  - Multi-window (30m AND 6h) error ratio > 0.06
+  - burn_rate = 6× target (1% budget consumed in ~2.4h)
+  - Severity: ticket
 
 Implementation:
-- error_budget_remaining = 1 - (total_errors / total_requests)
-- burn_rate = (1 - current_slo) / (1 - target_slo)
-- Alert when burn_rate > threshold for window
+  - Recording rules pre-compute per-worker error ratios at [5m/1h/30m/6h]
+  - Alerts require BOTH short and long windows to exceed threshold
+  - Prevents flapping from transient spikes
+  - See prometheus/rules/worker-slo.yml for exact definitions
 ```
 
 ---
@@ -547,6 +548,8 @@ Implementation:
 ## Dashboards
 
 ### Dashboard: RED (Rate, Errors, Duration)
+
+![RED Dashboard](../screenshots/red-metrics.jpg)
 
 **Purpose**: Real-time request health per route.
 
@@ -646,6 +649,8 @@ trace_id="<trace_id_from_log>"
 ```
 
 ### Dashboard: Log Explorer
+
+![Worker Logs Dashboard](../screenshots/worker-logs.jpg)
 
 **Purpose**: Recent error log browsing.
 
@@ -936,6 +941,8 @@ check endpoint.
 | Variable | Required | Workers | Description |
 |----------|----------|---------|-------------|
 | `SIGNOZ_OTEL_ENDPOINT` | No | gateway | SigNoz collector URL (e.g. `http://localhost:4318`). If unset, OTel export is skipped. |
+| `LOKI_ENDPOINT` | No | gateway | Loki HTTP push URL (e.g. `http://localhost:3100`). If unset, log export is skipped. |
+| `LOKI_TENANT_ID` | No | gateway | Loki tenant ID for multi-tenant setups. Omit for single-tenant. |
 | `SESSION_SECRET` | Yes | auth, analytics | HMAC signing key (must match across workers). Changed → all tokens invalidated. |
 | `LAMBDA_URL` | Yes | gateway | AWS Lambda Function URL for SigV4 proxy. |
 | `AWS_ACCESS_KEY_ID` | Yes | gateway | AWS IAM access key for SigV4 signing. |

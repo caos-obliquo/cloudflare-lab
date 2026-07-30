@@ -1,0 +1,32 @@
+# Cloudflare API credentials
+# Replace with your own values — do NOT commit the real terraform.tfvars
+cloudflare_api_token = "your-cloudflare-api-token"
+cloudflare_account_id = "your-account-id"
+
+# Environment
+environment = "prod"
+
+# Worker names (deployed names on Cloudflare)
+gateway_worker_name  = "gateway-worker"
+auth_worker_name     = "auth-worker"
+analytics_worker_name = "analytics-worker"
+rate_limiter_worker_name = "rate-limiter-worker"
+
+# D1 database names
+auth_d1_name       = "auth-d1-database"
+analytics_d1_name  = "analytics-events-db"
+
+# KV namespace names
+gateway_kv_name = "GATEWAY_KV"
+auth_kv_name    = "AUTH_KV"
+analytics_kv_name = "ANALYTICS_KV"
+
+# Queue names
+gateway_queue_name = "gateway-queue"
+
+# R2 bucket names
+gateway_r2_name = "gateway-r2"
+
+# Domains
+domain    = "api.example.com"
+zone_id   = "your-zone-id"

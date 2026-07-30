@@ -41,7 +41,12 @@
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 100,
       "panels": [],
       "title": "Gateway Worker",
@@ -52,10 +57,15 @@
       "title": "Request Rate",
       "description": "Requests per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -69,26 +79,43 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Requests/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null }
+              {
+                "color": "green",
+                "value": null
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -102,7 +129,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -121,10 +148,15 @@
       "title": "Error Rate",
       "description": "Error responses per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -138,27 +170,47 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Errors/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -172,7 +224,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -191,10 +243,15 @@
       "title": "Latency (p50 / p90 / p99)",
       "description": "Request latency percentiles by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -208,28 +265,51 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Latency (ms)",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 500 },
-              { "color": "red", "value": 1000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -243,7 +323,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -258,7 +338,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -273,7 +353,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -289,7 +369,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "id": 200,
       "panels": [],
       "title": "Auth Worker",
@@ -300,10 +385,15 @@
       "title": "Request Rate",
       "description": "Requests per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -317,26 +407,43 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Requests/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null }
+              {
+                "color": "green",
+                "value": null
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -350,7 +457,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -369,10 +476,15 @@
       "title": "Error Rate",
       "description": "Error responses per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -386,27 +498,47 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Errors/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -420,7 +552,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -439,10 +571,15 @@
       "title": "Latency (p50 / p90 / p99)",
       "description": "Request latency percentiles by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -456,28 +593,51 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Latency (ms)",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 500 },
-              { "color": "red", "value": 1000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -491,7 +651,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -506,7 +666,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -521,7 +681,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -537,7 +697,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
       "id": 300,
       "panels": [],
       "title": "Analytics Worker",
@@ -548,10 +713,15 @@
       "title": "Request Rate",
       "description": "Requests per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 19
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -565,26 +735,43 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Requests/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null }
+              {
+                "color": "green",
+                "value": null
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -598,7 +785,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -617,10 +804,15 @@
       "title": "Error Rate",
       "description": "Error responses per second by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 19
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -634,27 +826,47 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Errors/sec",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -668,7 +880,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -687,10 +899,15 @@
       "title": "Latency (p50 / p90 / p99)",
       "description": "Request latency percentiles by route",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 19
+      },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -704,28 +921,51 @@
             "gradientMode": "opacity",
             "spanNulls": true,
             "pointSize": 3,
-            "stacking": { "mode": "none", "group": "A" },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
             "axisPlacement": "auto",
             "axisLabel": "Latency (ms)",
             "axisColorMode": "text",
-            "scaleDistribution": { "type": "linear" },
-            "hideFrom": { "tooltip": false, "viz": false, "legend": false }
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 500 },
-              { "color": "red", "value": 1000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
             ]
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "calcs": ["max", "mean"],
+          "calcs": [
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -739,7 +979,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -754,7 +994,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -769,7 +1009,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -787,7 +1027,11 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["cloudflare-lab", "workers", "red-metrics"],
+  "tags": [
+    "cloudflare-lab",
+    "workers",
+    "red-metrics"
+  ],
   "templating": {
     "list": []
   },
@@ -799,6 +1043,6 @@
   "timezone": "",
   "title": "Worker RED Metrics",
   "uid": "worker-red-metrics",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

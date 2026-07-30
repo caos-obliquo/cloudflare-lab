@@ -16,9 +16,9 @@
 
 ## Diagnose
 # 1. Check worker metrics dashboard (Grafana):
-#    - Error rate per route:   `rate(worker_http_requests_total{status=~"5.."}[5m])`
-#    - P99 latency per route:  `histogram_quantile(0.99, worker_request_duration_ms_bucket)`
-#    - Compare to SLO target:  99.9% success, p99 < 2000ms
+#    - Error rate per route:   `rate(cloudflare_request_errors_total[5m])`
+#    - P99 latency per route:  `cloudflare_request_duration_ms{quantile="0.99"}`
+#    - Compare to SLO target:  99% success, p99 < 500ms
 # 2. Check Loki logs for error trace_ids:
 #    `{service="gateway"} |= "ERROR" | json | status >= 500`
 # 3. Check if downstream dependencies are healthy:
@@ -86,8 +86,8 @@
 # Severity: WARNING
 
 ## Diagnose
-# 1. Check D1 query metrics in worker:
-#    `worker_d1_query_duration_ms{worker="auth"}`
+# 1. Check D1 query latency via gateway metrics:
+#    `cloudflare_request_duration_ms{worker="gateway",path="/d1",quantile="0.99"}`
 # 2. Review query patterns: missing index? full table scan?
 # 3. Check D1 storage usage: `wrangler d1 info <db-name>`
 
@@ -130,9 +130,9 @@
 # ---------------------------------------------------------------------------
 # Observability Stack Access
 # ---------------------------------------------------------------------------
-# Prometheus:   http://localhost:9090  (docker-compose up)
-# Grafana:      http://localhost:3000  (admin/admin123)
-# SigNoz:       http://localhost:3301  (admin@signoz.com / admin123)
+# Prometheus:   http://localhost:9090  (docker compose up / podman compose up)
+# Grafana:      http://localhost:3000  (anonymous admin — no login required)
+# SigNoz:       http://localhost:8080  (admin@signoz.com / admin123)
 # CloudWatch:   https://console.aws.amazon.com/cloudwatch/home
 # X-Ray:        https://console.aws.amazon.com/xray/home
 # wrangler dev: http://localhost:8788  (auth worker local)
