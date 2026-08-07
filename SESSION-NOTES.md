@@ -1,4 +1,4 @@
-# Session Notes — Cloudflare Lab Observability Portfolio
+# Session Notes - Cloudflare Lab Observability Portfolio
 
 Handoff notes for continuing in a new chat. Paste relevant sections as context.
 
@@ -47,7 +47,7 @@ Full CNCF stack: OTel→SigNoz traces, Prometheus metrics, Loki logs, Grafana da
 - Gateway routes.rs: buffers log events + pushes to Loki in `cx.wait_until()`
 
 ### Docs
-- `OBSERVABILITY.md`: 997-line architecture doc — ASCII pipeline diagrams, RED metrics, PromQL/LogQL examples, SLOs, debugging guide, runbooks
+- `OBSERVABILITY.md`: 997-line architecture doc - ASCII pipeline diagrams, RED metrics, PromQL/LogQL examples, SLOs, debugging guide, runbooks
 - `SESSION-NOTES.md`: this file
 
 ### Misc
@@ -56,7 +56,7 @@ Full CNCF stack: OTel→SigNoz traces, Prometheus metrics, Loki logs, Grafana da
 - GitHub secrets set: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, SESSION_SECRET
 - All local podman containers killed; `observability` podman network created for local testing
 
-## BLOCKED — User Action Required
+## BLOCKED - User Action Required
 
 **Deploy workflow fails: `Authentication error [code: 10000]`** on all workers.
 API token lacks `Workers Scripts:Edit` permission.
@@ -66,10 +66,10 @@ Then: `gh workflow run deploy.yml --ref main`
 
 Token already has IP whitelist (13.89.124.24 + IPv6), TTL to Jul 2027. Earlier `[code: 9109]` IP error resolved; only permission missing.
 
-## In Progress — Local Loki/Grafana Test
+## In Progress - Local Loki/Grafana Test
 
 - No docker/docker-compose/podman-compose installed. Podman v6.0.1 available.
-- Manual `podman run` attempted for Loki: `grafana/loki:3.0` pull failed — `manifest unknown`.
+- Manual `podman run` attempted for Loki: `grafana/loki:3.0` pull failed - `manifest unknown`.
 - Fix: use valid tag (`grafana/loki:latest` or pinned `3.2.x`), then start Prometheus + Grafana manually on the `observability` network.
 
 ```bash
@@ -102,9 +102,9 @@ podman run -d --name grafana-lab --network observability -p 3000:3000 -e GF_AUTH
 - **D1 bindings**: `database_name` only, no `database_id` (multi-account workaround, documented risk)
 - **WASM gotchas**: no `SystemTime::now()` (use `js_sys::Date::now()`), no `ring::rand::SystemRandom` (use `getrandom` js feature)
 - **Loki push format**: POST `/loki/api/v1/push`, streams grouped by (service, level), ns timestamps `Date::now().as_millis() * 1_000_000`
-- **Grafana latency panels**: use summary quantiles `cloudflare_request_duration_ms{quantile="0.99"}` — codebase emits summaries, NOT histogram buckets
-- **Metrics exposed**: `cloudflare_requests_total`, `cloudflare_request_errors_total` (status>=400), `cloudflare_request_duration_*` — labels `{method,path,worker}`
-- zsh quoting: backticks/colons in `gh pr create --body` cause harmless `command not found` noise — PRs still created
+- **Grafana latency panels**: use summary quantiles `cloudflare_request_duration_ms{quantile="0.99"}` - codebase emits summaries, NOT histogram buckets
+- **Metrics exposed**: `cloudflare_requests_total`, `cloudflare_request_errors_total` (status>=400), `cloudflare_request_duration_*` - labels `{method,path,worker}`
+- zsh quoting: backticks/colons in `gh pr create --body` cause harmless `command not found` noise - PRs still created
 
 ## Verification Commands
 

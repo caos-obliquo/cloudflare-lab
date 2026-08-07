@@ -76,10 +76,10 @@ SigNoz collector receives OTel spans over HTTP/protobuf.
 In-memory counters and histograms per endpoint, exported at GET /metrics in
 Prometheus text format.
 
-**Counter**: `cloudflare_requests_total{method,path}` — incremented per request.
-**Error counter**: `cloudflare_request_errors_total{method,path}` — incremented
+**Counter**: `cloudflare_requests_total{method,path}` - incremented per request.
+**Error counter**: `cloudflare_request_errors_total{method,path}` - incremented
 when status >= 400.
-**Summary**: `cloudflare_request_duration_ms{method,path}` — raw values with
+**Summary**: `cloudflare_request_duration_ms{method,path}` - raw values with
 p50/p90/p99 computed on-scrape.
 
 ```prometheus
@@ -101,11 +101,11 @@ cloudflare_request_duration_ms{method="GET",path="/health",quantile="0.99"} 8.7
 ```
 
 **Storage**: in-process `MetricsRegistry` with `Arc<EndpointMetrics>` sharing.
-`register()` returns an `Arc` — callers record via the Arc, export iterates the
+`register()` returns an `Arc` - callers record via the Arc, export iterates the
 registry. WASM-single-threaded: `Mutex<Vec<Arc<...>>>` for the registry list.
 
 **Reset on deploy**: Every worker deployment resets all counters. This is
-intentional — Workers are ephemeral, and a deploy is a new process. Grafana
+intentional - Workers are ephemeral, and a deploy is a new process. Grafana
 should use `rate()` not absolute values.
 
 ### Traces (OTLP over HTTP/protobuf)
@@ -301,7 +301,7 @@ requires protobuf content-type.
 // In any handler that has access to the MetricsRegistry:
 use crate::metrics;  // returns &'static MetricsRegistry
 
-// Register returns Arc<EndpointMetrics> — call once, record on each request.
+// Register returns Arc<EndpointMetrics> - call once, record on each request.
 let ep = metrics().register("POST", "/my-new-route");
 let duration_ms = ep.record(status, start_ms);
 // record() increments requests counter, observes latency, increments errors
@@ -402,7 +402,7 @@ let (status, details) = registry.overall_status();
 │
 ├─ Step 2: Check /metrics for error counter
 │  $ curl https://gateway-worker/metrics | grep errors_total
-│  Check cloudflare_request_errors_total — which path?
+│  Check cloudflare_request_errors_total - which path?
 │
 ├─ Step 3: Check /logs for recent error events
 │  $ curl https://gateway-worker/logs | jq '.logs[] | select(.level=="ERROR")'
@@ -417,7 +417,7 @@ let (status, details) = registry.overall_status();
 ### Scenario: High latency on /d1
 
 ```
-┌─ Check /health — D1 binding healthy?
+┌─ Check /health - D1 binding healthy?
 │  If unhealthy: check D1 dashboard for query concurrency limits
 │
 ├─ Check /metrics for /d1 latency:
@@ -434,7 +434,7 @@ let (status, details) = registry.overall_status();
 ### Scenario: Auth tokens failing
 
 ```
-┌─ Check /health on gateway — AUTH binding up?
+┌─ Check /health on gateway - AUTH binding up?
 │  If auth-worker is down, all /protected requests fail 502
 │
 ├─ Check auth-worker logs directly
@@ -476,7 +476,7 @@ let (status, details) = registry.overall_status();
 ### Scenario: /metrics not updating
 
 ```
-┌─ MetricsRegistry is in-process — deploys reset it
+┌─ MetricsRegistry is in-process - deploys reset it
 │  After deploy, counters start at 0. Use rate() in Grafana.
 │
 ├─ Check that register() is being called
@@ -719,7 +719,7 @@ consumer).
 
 ```
 1. Confirm it's D1, not the worker:
-   curl /health — check D1 binding latency
+   curl /health - check D1 binding latency
    Normal: <50ms. Above 200ms = degraded.
 
 2. Check D1 query concurrency:
@@ -760,7 +760,7 @@ jumps for path="/protected". User complaints of access denied.
 
 ```
 1. Check auth-worker health:
-   curl /health on gateway — AUTH binding shows unhealthy?
+   curl /health on gateway - AUTH binding shows unhealthy?
    If gateway cannot reach auth-worker, check service binding.
 
 2. Check auth-worker logs:
@@ -811,7 +811,7 @@ degradation.
    - Block suspicious User-Agents
 
 4. If legitimate:
-   - Monitor p99 latency — do not let surge degrade quality
+   - Monitor p99 latency - do not let surge degrade quality
    - Consider upgrading D1 plan if surge is D1-heavy
    - No action needed (Workers scale transparently)
 ```
