@@ -1,4 +1,4 @@
-# RUNBOOK — Cloudflare Workers + AWS Lambda Observability
+# RUNBOOK - Cloudflare Workers + AWS Lambda Observability
 #
 # Usage: first responder guide for alert fire-fighting.
 # Every alert maps to: symptom → diagnose → resolve.
@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # ALERT: Worker SLO burn-rate (5m / 30m)
 # ---------------------------------------------------------------------------
-# Symptom:  pagerduty/webhook alert — "WorkerErrorBudgetBurn"
+# Symptom:  pagerduty/webhook alert - "WorkerErrorBudgetBurn"
 # Severity: CRITICAL
 
 ## Diagnose
@@ -41,7 +41,7 @@
 # ---------------------------------------------------------------------------
 # ALERT: Lambda Error Rate
 # ---------------------------------------------------------------------------
-# Symptom:  CloudWatch alarm — "devops-api-{env}-errors" firing
+# Symptom:  CloudWatch alarm - "devops-api-{env}-errors" firing
 # Severity: CRITICAL
 
 ## Diagnose
@@ -63,7 +63,7 @@
 # ---------------------------------------------------------------------------
 # ALERT: Lambda Duration p95 > 5s
 # ---------------------------------------------------------------------------
-# Symptom:  CloudWatch alarm — "devops-api-{env}-duration-p95"
+# Symptom:  CloudWatch alarm - "devops-api-{env}-duration-p95"
 # Severity: WARNING
 
 ## Diagnose
@@ -82,7 +82,7 @@
 # ---------------------------------------------------------------------------
 # ALERT: D1 Query Latency
 # ---------------------------------------------------------------------------
-# Symptom:  Prometheus alert — "HighD1QueryLatency"
+# Symptom:  Prometheus alert - "HighD1QueryLatency"
 # Severity: WARNING
 
 ## Diagnose
@@ -100,7 +100,7 @@
 # ---------------------------------------------------------------------------
 # ALERT: Auth Failure Spike
 # ---------------------------------------------------------------------------
-# Symptom:  Grafana alert — "HighAuthFailureRate" or 401 spike
+# Symptom:  Grafana alert - "HighAuthFailureRate" or 401 spike
 # Severity: WARNING → CRITICAL if > 50% of requests
 
 ## Diagnose
@@ -131,7 +131,7 @@
 # Observability Stack Access
 # ---------------------------------------------------------------------------
 # Prometheus:   http://localhost:9090  (docker compose up / podman compose up)
-# Grafana:      http://localhost:3000  (anonymous admin — no login required)
+# Grafana:      http://localhost:3000  (anonymous admin - no login required)
 # SigNoz:       http://localhost:8080  (admin@signoz.com / admin123)
 # CloudWatch:   https://console.aws.amazon.com/cloudwatch/home
 # X-Ray:        https://console.aws.amazon.com/xray/home

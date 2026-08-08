@@ -33,14 +33,14 @@ Branch protection on `main` requires exact job name match:
 
 | Job ID (pr.yml) | Status | Notes |
 |-----------------|--------|-------|
-| `lint` | REQUIRED | inline — must match exactly |
-| `security` | REQUIRED | inline — must match exactly |
-| `build` | REQUIRED | inline — must match exactly |
-| `tf-lint` | REQUIRED | inline — must match exactly |
+| `lint` | REQUIRED | inline - must match exactly |
+| `security` | REQUIRED | inline - must match exactly |
+| `build` | REQUIRED | inline - must match exactly |
+| `tf-lint` | REQUIRED | inline - must match exactly |
 | `rust-deep` | informational | calls ci-rust.yml |
 | `security-deep` | informational | calls ci-security.yml |
 | `tf-modules` | informational | calls ci-terraform.yml |
-| `integration` | REQUIRED | inline — boots wrangler dev, runs gateway+auth+analytics suites |
+| `integration` | REQUIRED | inline - boots wrangler dev, runs gateway+auth+analytics suites |
 
 ⚠️ **Branch-protection coupling**: When a job calls a reusable workflow (`uses:`),
 the check name becomes `parent-job / child-job` (e.g. `rust-deep / fmt`).
@@ -61,7 +61,7 @@ preserve the branch-protection names.
 
 - **deploy.yml build kept inline**: ci-rust.yml runs `cargo build --release --target wasm32`,
   which is redundant with each deploy worker's `worker-build --release`. Inline build
-  runs `cargo check` only — faster, same gate value.
+  runs `cargo check` only - faster, same gate value.
 - **SHA pinning**: ci-security.yml pins all third-party actions to commit SHA with
   version comments. Other workflows use version tags (lower maintenance burden for
   non-security paths).

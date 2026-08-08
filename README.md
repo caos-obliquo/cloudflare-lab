@@ -20,35 +20,35 @@ Browser ──▶ Gateway Worker ──┬── Service Binding ──▶ Auth 
 
 ## Workers
 
-### Gateway (`workers/gateway`) — central router + observability hub
+### Gateway (`workers/gateway`) - central router + observability hub
 
 | Route | Method | Binding |
 |-------|--------|---------|
-| `/` | GET | — |
+| `/` | GET | - |
 | `/kv` | GET | KV |
 | `/d1` | GET | D1 |
 | `/queue` | GET | Queues |
 | `/ai` | GET | Workers AI |
 | `/health` | GET | all bindings health check |
-| `/livez` | GET | — |
-| `/readyz` | GET | — |
+| `/livez` | GET | - |
+| `/readyz` | GET | - |
 | `/metrics` | GET | in-memory Prometheus |
 | `/logs` | GET | in-memory ring buffer |
-| `/v1/models` | GET | — |
+| `/v1/models` | GET | - |
 | `/protected` | GET | auth-worker service binding |
 | `/lambda/query` | POST | SigV4 -> Lambda Function URL |
-| `OPTIONS *` | — | CORS |
+| `OPTIONS *` | - | CORS |
 
-### Auth (`workers/auth`) — HMAC stateless tokens + pbkdf2
+### Auth (`workers/auth`) - HMAC stateless tokens + pbkdf2
 
 | Route | Method | Rate Limit |
 |-------|--------|------------|
 | `/register` | POST | 5/min/IP |
 | `/login` | POST | 10/min/IP |
-| `/verify` | GET | — |
-| `/me` | GET | — |
+| `/verify` | GET | - |
+| `/me` | GET | - |
 
-### Analytics (`workers/analytics`) — event tracking on D1
+### Analytics (`workers/analytics`) - event tracking on D1
 
 | Route | Method | Auth |
 |-------|--------|------|
@@ -56,11 +56,11 @@ Browser ──▶ Gateway Worker ──┬── Service Binding ──▶ Auth 
 | `/events` | GET | Bearer |
 | `/summary` | GET | Bearer |
 
-### Rate Limiter (`workers/rate-limiter`) — DO atomic counter
+### Rate Limiter (`workers/rate-limiter`) - DO atomic counter
 
 POST `{"limit":N,"window":T}` → `{"allowed":bool,"remaining":N}`
 
-### Lambda (`lambda/devops-api`) — Rust provided.al2023
+### Lambda (`lambda/devops-api`) - Rust provided.al2023
 
 | Route | Method |
 |-------|--------|
@@ -137,7 +137,7 @@ Validate: `make prom-test` (promtool check rules + unit test)
 
 | Feature | Terraform Resource |
 |---------|-------------------|
-| Dashboard | `aws/cloudwatch.tf` — invocations, errors, p50/p95/p99 duration |
+| Dashboard | `aws/cloudwatch.tf` - invocations, errors, p50/p95/p99 duration |
 | Alarms | Lambda errors > 0, p95 > 5s, throttles > 0, ERROR log count |
 | X-Ray tracing | `lambda.tf`: `tracing_config { mode = "Active" }` |
 | ADOT layer | aws-otel-collector-amd64 sidecar for enhanced metrics |
@@ -215,7 +215,7 @@ Workers are Cloudflare-global by default (no region concept). Key DR properties:
 - `cloudflare_workers_secret` resource does not exist. Use `wrangler secret put`.
 - `cloudflare_workers_route` uses `script` (not `script_name`).
 - `cloudflare_zone_setting` uses `setting_id` (not `setting`).
-- Logpush `ownership_challenge` string not exported — cannot automate `logpush_job`.
+- Logpush `ownership_challenge` string not exported - cannot automate `logpush_job`.
 - Renaming resources = destroy (workspace prefix for NEW resources only).
 
 ### WASM
@@ -233,7 +233,7 @@ Workers are Cloudflare-global by default (no region concept). Key DR properties:
 ### SigNoz
 - Collector/query-service version mismatch → schema conflict. Set `use_new_schema: false` or upgrade.
 - OTLP JSON rejected over HTTP. Must use `application/x-protobuf`.
-- No retry in `cx.wait_until()` — silently dropped if collector down. Best-effort only.
+- No retry in `cx.wait_until()` - silently dropped if collector down. Best-effort only.
 - Login: `admin@signoz.com` / `admin123`.
 
 ### Secrets
